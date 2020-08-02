@@ -86,7 +86,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 
 	// background quad
 	if(i[0].tangent.w < 0) {
-		rec = float4(0, 0, 6.0/80, 1) * 2 - 1;
+		rec = (float4(0, 0, 6.0/80, 1) * 2 - 1) * flip.xyxy;
 		o.color[0] = o.color[1] = 0;
 	}
 

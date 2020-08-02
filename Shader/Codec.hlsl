@@ -2,11 +2,9 @@ float3 unlerp(float3 a, float3 b, float3 y) {
 	return (y-a)/(b-a);
 }
 float median(float3 v) {
-	return max(min(v.r, v.g), min(max(v.r, v.g), v.b));
+	return clamp(v.x, min(v.y, v.z), max(v.y, v.z));
 }
-float min3(float3 v) {
-	return min(min(v.x, v.y), v.z);
-}
+
 float3 GammaToLinear(float3 color) {
 	return color <= 0.04045F? color / 12.92F : pow((color + 0.055F)/1.055F, 2.4F);
 }
@@ -14,70 +12,47 @@ float3 LinearToGamma(float3 color) {
 	return color <= 0.0031308F ? 12.92F * color : 1.055F * pow(color, 0.4166667F) - 0.055F;
 }
 
-// static float3x3 RGB2YCC_BT709 = float3x3(
-// 	float3( 0.2126,  0.7152,  0.0722),
-// 	float3(-0.2126, -0.7152,  0.9278)/1.8556,
-// 	float3( 0.7874, -0.7152, -0.0722)/1.5748);
-// static float3x3 YCC2RGB_BT709 = float3x3(
-// 	1,  0         ,  1.5748    ,
-// 	1, -0.18732427, -0.46812427,
-// 	1,  1.8556    ,  0         );
-
-float3 encode6_grb_gray(uint n) {
-	float3 c;
-	uint3 d = (n >> uint3(4,2,0)) & 3;
-	d.yz ^= (d.xy & 1) * 3;
-	c.grb = d / 3.0;
-	return c;
+uint2 graycode_encode(uint base, inout uint2 n) {
+	uint2 d = n % base;
+	n /= base;
+	return (n & 1) ? base-1-d : d;
 }
-uint decode6_grb_gray(float3 c) {
-	uint3 d = round(c.grb * 3);
-	d.yz ^= (uint2(d.x, d.x^d.y) & 1) * 3;
-	return dot(d, uint3(16,4,1));
+float graycode_decode(uint base, float lo, float hi) {
+	float ce = ceil(hi);
+	// flip lo so that it's 0 at U-turn
+	float2 ST = (int(ce) & 1) ? float2(-1, base-1) : float2(1, 0);
+	lo = lo * ST.x + ST.y;
+	// locate nearest curve point
+	float2 P = 0.5 - float2(lo, ce-hi);
+	P = 0.5 - P / max(P.x, abs(P.y)) * 0.5;
+	lo = min(lo, P.x);
+	// bilinear interpolation
+	return lo + (base-1-2*lo) * P.y + base * (ce-P.y);
 }
-float3 encode6_grb_hilbert(uint n) {
-	float2 H4x4[16] = {
-		{3,3},{3,2},{3,1},{3,0},{2,0},{2,1},{1,1},{1,0},
-		{0,0},{0,1},{0,2},{0,3},{1,3},{1,2},{2,2},{2,3},
-	};
-	return (float3(n/16, H4x4[n%16]) / 3).grb;
+void EncodeUnorm(float x, out float3 c[2], uint base=3) {
+	x = saturate(x) * (pow(base,6)-1);
+	uint2  n = uint(floor(x)) + uint2(0, 1);
+	float2 wt = float2(1-frac(x), frac(x));
+	float3 d0, d1;
+	d1[2] = dot(graycode_encode(base, n), wt);
+	d1[1] = dot(graycode_encode(base, n), wt);
+	d1[0] = dot(graycode_encode(base, n), wt);
+	d0[2] = dot(graycode_encode(base, n), wt);
+	d0[1] = dot(graycode_encode(base, n), wt);
+	d0[0] = dot(n, wt);
+	c[0].grb = d0/(base-1);
+	c[1].grb = d1/(base-1);
 }
-uint decode6_grb_hilbert(float3 c) {
-	uint4x4 H4x4 = uint4x4(8,9,10,11, 7,6,13,12, 4,5,14,15, 3,2,1,0);
-	uint3 d = round(c.grb*3);
-	return H4x4[d[1]][d[2]] + d[0]*16;
-}
-float3 encode6_grayscale(uint n) {
-	return n/63.0;
-}
-uint decode6_grayscale(float3 c) {
-	return round(dot(c, float3( 0.2126,  0.7152,  0.0722)) * 63);
-}
-
-#if defined(CODEC_HILBERT)
-#define encode6 encode6_grb_hilbert
-#define decode6 decode6_grb_hilbert
-#elif defined(CODEC_GRAYSCALE)
-#define encode6 encode6_grayscale
-#define decode6 decode6_grayscale
-#else
-#define encode6 encode6_grb_gray
-#define decode6 decode6_grb_gray
-#endif
-
-void EncodeUnorm(float x, out float3 c[2]) {
-	uint n = min((uint)round(saturate(x) * (1<<12)), (1<<12)-1);
-	uint2 d = uint2(n/64, n%64);
-	d[1] ^= (d[0] & 1) * 63;
-	c[0] = encode6(d[0]);
-	c[1] = encode6(d[1]);
-}
-float DecodeUnorm(float3 c[2]) {
-	uint2 d;
-	d[0] = decode6(c[0]);
-	d[1] = decode6(c[1]);
-	d[1] ^= (d[0] & 1) * 63;
-	return dot(d, rcp(float2(64, 64*64)));
+float DecodeUnorm(float3 c[2], uint base=3) {
+	float3 d0 = c[0].grb * (base-1);
+	float3 d1 = c[1].grb * (base-1);
+	float v = d1[2];
+	v = graycode_decode(pow(base,1), v, d1[1]);
+	v = graycode_decode(pow(base,2), v, d1[0]);
+	v = graycode_decode(pow(base,3), v, d0[2]);
+	v = graycode_decode(pow(base,4), v, d0[1]);
+	v = graycode_decode(pow(base,5), v, d0[0]);
+	return v / (pow(base,6)-1);
 }
 
 static uint2 entrySize = uint2(2, 1);
