@@ -1,18 +1,17 @@
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.Linq;
 using Array = System.Array;
 using Path = System.IO.Path;
 using UnityEngine;
 using UnityEditor;
-using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
 public partial class MeshGen {
 	public static void GenReplayMesh(Animator animator, HumanBodyBones[] humanBones, Mesh mesh, Transform[] bones, Mesh srcMesh, Transform[] srcBones, Texture2D tex, int quality=2) {
-		var B = LoadBoneData(animator, humanBones, bones);
+		var B = HumanUtil.LoadBoneData(animator, humanBones, bones);
 		var root = animator.transform;
-		var humanScale = GetHumanScale(animator);
+		var humanScale = HumanUtil.GetHumanScale(animator);
 		var hipsIndex = Array.IndexOf(humanBones, HumanBodyBones.Hips);
 
 		// generate armature LUT
@@ -156,3 +155,4 @@ public partial class MeshGen {
 	}
 }
 }
+#endif
