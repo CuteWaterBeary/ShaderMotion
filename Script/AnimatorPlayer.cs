@@ -10,35 +10,53 @@ using AsyncGPUReadback = UnityEngine.Rendering.AsyncGPUReadback;
 using AsyncGPUReadbackRequest = UnityEngine.Rendering.AsyncGPUReadbackRequest;
 
 namespace ShaderMotion {
-public class MotionAnimator : MonoBehaviour  {
+public class GPUReader {
+	Queue<AsyncGPUReadbackRequest> requests = new Queue<AsyncGPUReadbackRequest>();
+	public AsyncGPUReadbackRequest? Request(Texture tex) {
+		AsyncGPUReadbackRequest? request = null;
+		while(requests.Count > 0) {
+			var r = requests.Peek();
+			if(!r.done)
+				break;
+			request = requests.Dequeue();
+		}
+		if(requests.Count < 2)
+			requests.Enqueue(AsyncGPUReadback.Request(tex));
+		return request;
+	}
+}
+public class AnimatorPlayer : MonoBehaviour  {
+	GPUReader gpuReader = new GPUReader();
 	public RenderTexture motionBuffer;
 	public Animator animator;
-	public float frameRate = 30;
 	public bool useRawMuscle = false;
 	
-	float dt = 0;
-	Queue<AsyncGPUReadbackRequest> requests = new Queue<AsyncGPUReadbackRequest>();
+
 	NativeArray<Color> colors = new NativeArray<Color>();
 
 	void Update() {
-		while(requests.Count > 0) {
-			var request = requests.Peek();
-			if(request.hasError)
-				Debug.LogWarning("AsyncGPUReadbackRequest Error");
-			else if(request.done) {
-				colors = request.GetData<Color>();
-				if(useRawMuscle)
-					AnimateUsingHumanPose();
-				else
-					AnimateUsingRotation();
-			} else
-				break;
-			requests.Dequeue();
-		}
-		dt += Time.deltaTime;
-		if(dt*frameRate >= 1) {
-			dt = 0;
-			requests.Enqueue(AsyncGPUReadback.Request(motionBuffer));
+		var request = gpuReader.Request(motionBuffer);
+		if(request != null && !request.Value.hasError) {
+			colors = request.Value.GetData<Color>();
+			if(useRawMuscle)
+				AnimateUsingHumanPose();
+			else
+				AnimateUsingRotation();
+			if(recording)
+				recorder.TakeSnapshot(Time.deltaTime);
+			else if(recording_) {
+				if(!recordingClip) {
+					recordingClip = new AnimationClip();
+					var path0 = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
+									animator.name);
+					AssetDatabase.CreateAsset(recordingClip, $"{path0}_motion.anim");
+				}
+				recordingClip.ClearCurves();
+				recorder.SaveToClip(recordingClip);
+				recorder.ResetRecording();
+				AssetDatabase.SaveAssets();
+			}
+			recording_ = recording;
 		}
 	}
 
@@ -61,7 +79,15 @@ public class MotionAnimator : MonoBehaviour  {
 	float[] muscles;
 	float humanScale;
 
+	bool recording_ = false;
+	public bool recording = false;
+	public AnimationClip recordingClip;
+	HumanAnimatorRecorder recorder;
+	
+
 	void Start() {
+		recorder = new HumanAnimatorRecorder(animator);
+	
 		humanBones = MeshGen.humanBodyBones;
 		bones = new Transform[humanBones.Length];
 		boneData = HumanUtil.LoadBoneData(animator, humanBones, bones);
@@ -108,6 +134,8 @@ public class MotionAnimator : MonoBehaviour  {
 		var rootT = new Vector3(0,1,0);
 		var rootY = Vector3.up;
 		var rootZ = Vector3.forward;
+
+		Array.Clear(muscles, 0, muscles.Length);
 
 		var idx = 0;
 		for(int i=0; i<bones.Length; i++) {
@@ -175,12 +203,30 @@ public class MotionAnimator : MonoBehaviour  {
 			if(humanBones[i] == HumanBodyBones.Hips)
 				bones[i].SetPositionAndRotation(
 					root.TransformPoint(rootT * humanScale),
-					root.rotation * Quaternion.LookRotation(rootZ, rootY) * axes.preQ);
+					root.rotation * Quaternion.LookRotation(rootZ, rootY) * Quaternion.Inverse(axes.postQ));
 			else
 				bones[i].localRotation = axes.preQ * muscleToRotation(axes.sign * muscle)
 											* Quaternion.Inverse(axes.postQ);
 		}
 	}
+	// [CustomEditor(typeof(AnimatorPlayer))]
+	// class CustomEditor : Editor {
+	// 	public override void OnInspectorGUI() {
+	// 		base.OnInspectorGUI();
+	// 		outputClip
+	// 		if(GUILayout.Button("StartRecording")) {
+
+ //            		// 		var clip = new AnimationClip();
+	// // 		recorder.SaveToClip(clip);
+			
+
+	// // 		var path0 = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
+	// // 						animator.name);
+	// // 		var path = $"{path0}_motion.anim";
+	// // 		AssetDatabase.CreateAsset(clip, path);
+ //        	}
+	// 	}
+	// }
 }
 }
 #endif
