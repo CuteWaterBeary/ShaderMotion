@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: MotionReplay
+  m_Name: MotionPlayer
   m_Shader: {fileID: 4800000, guid: 00a71ddf3b7dffc489c7eab664308baa, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4

@@ -9,12 +9,12 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
-public partial class HumanUtil {
+public class HumanUtil {
 	public struct Axes {
 		static MethodInfo GetPreRotation  = typeof(Avatar).GetMethod("GetPreRotation", BindingFlags.NonPublic | BindingFlags.Instance);
 		static MethodInfo GetPostRotation = typeof(Avatar).GetMethod("GetPostRotation", BindingFlags.NonPublic | BindingFlags.Instance);
 		static MethodInfo GetLimitSign    = typeof(Avatar).GetMethod("GetLimitSign", BindingFlags.NonPublic | BindingFlags.Instance);
-		static Regex Constrained = new Regex(@"Toes|Eye|Proximal|Intermediate|Distal$");
+		static Regex Constrained = new Regex(@"Jaw|Toes|Eye|Proximal|Intermediate|Distal$");
 
 		public Quaternion preQ, postQ; // bone.localRotation * postQ == preQ * muscleQ(sign * angle)
 		public float sign;
@@ -55,55 +55,6 @@ public partial class HumanUtil {
 			sign   = 1;
 		}
 	}
-	public struct BoneData {
-		public Axes axes;
-		public int parent;
-		public int[] channels;
-	}
-	public static BoneData[] LoadBoneData(Animator animator, HumanBodyBones[] humanBones, Transform[] bones) {
-		for(int i=0; i<humanBones.Length; i++)
-			if(!bones[i])
-				bones[i] = animator.GetBoneTransform(humanBones[i]);
-
-		var data = Enumerable.Repeat(new BoneData{parent=-1}, bones.Length).ToArray();
-		// axes/parent for human bones
-		for(int i=0; i<humanBones.Length; i++) {
-			data[i].axes = new Axes(animator.avatar, humanBones[i]);
-			for(var b = humanBones[i]; data[i].parent < 0 && b != HumanBodyBones.Hips; ) {
-				b = (HumanBodyBones)HumanTrait.GetParentBone((int)b);
-				var idx = Array.IndexOf(humanBones, b);
-				data[i].parent = idx >= 0 && bones[idx] ? idx : -1;
-			}
-		}
-		// axes/parent for non-human bones
-		for(int i=humanBones.Length; i<bones.Length; i++) {
-			data[i].axes = new Axes(bones[i]);
-			for(var b = bones[i]; data[i].parent < 0 && b != null; ) {
-				b = b.parent;
-				data[i].parent = b ? Array.IndexOf(bones, b) : -1;
-			}
-		}
-		// retarget axes.preQ for parent change (hips is already set relative to root)
-		for(int i=0; i<bones.Length; i++)
-			if(bones[i] && !(i < humanBones.Length && humanBones[i] == HumanBodyBones.Hips)) {
-				data[i].axes.preQ = Quaternion.Inverse((data[i].parent < 0 ? animator.transform : bones[data[i].parent]).rotation)
-							* bones[i].parent.rotation * data[i].axes.preQ;
-				if(data[i].parent < 0)
-					data[i].axes.ClearPreQ();
-			}
-		// channels from axes
-		for(int i=0; i<bones.Length; i++) {
-			var chan = new List<int>();
-			if(bones[i] && data[i].parent < 0)
-				chan.AddRange(Enumerable.Range(3, 9)); // chan[3:6] = position, chan[6:12] = rotation matrix
-			else
-				for(int j=0; j<3; j++)
-					if(!(data[i].axes.min[j] == 0 && data[i].axes.max[j] == 0))
-						chan.Add(j);
-			data[i].channels = chan.ToArray();
-		}
-		return data;
-	}
 	public static float GetHumanScale(Animator animator) {
 		var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
 		HumanDescription? humanDescription = null;
@@ -120,6 +71,50 @@ public partial class HumanUtil {
 		var pose = new HumanPose();
 		new HumanPoseHandler(animator.avatar, animator.transform).GetHumanPose(ref pose);
 		return animator.transform.InverseTransformPoint(hips.position).y/pose.bodyPosition.y;
+	}
+	public class Armature {
+		public HumanBodyBones[] humanBones;
+		public Transform[] bones;
+		public Axes[] axes;
+		public int[] parents;
+		public Transform root;
+		public float scale;
+		public Armature(Animator animator, HumanBodyBones[] humanBones, Transform[] bones=null) {
+			root = animator.transform;
+			scale = GetHumanScale(animator);
+			// set up bones
+			this.humanBones = humanBones;
+			this.bones = bones = bones ?? new Transform[humanBones.Length];
+			for(int i=0; i<humanBones.Length; i++)
+				if(!bones[i])
+					bones[i] = animator.GetBoneTransform(humanBones[i]);
+			// set up axes/parents
+			axes = new Axes[bones.Length];
+			parents = Enumerable.Repeat(-1, bones.Length).ToArray();
+			for(int i=0; i<humanBones.Length; i++) { // human bones
+				axes[i] = new Axes(animator.avatar, humanBones[i]);
+				for(var b = humanBones[i]; parents[i] < 0 && b != HumanBodyBones.Hips; ) {
+					b = (HumanBodyBones)HumanTrait.GetParentBone((int)b);
+					var idx = Array.IndexOf(humanBones, b);
+					parents[i] = idx >= 0 && bones[idx] ? idx : -1;
+				}
+			}
+			for(int i=humanBones.Length; i<bones.Length; i++) { // non-human bones
+				axes[i] = new Axes(bones[i]);
+				for(var b = bones[i]; parents[i] < 0 && b != null; ) {
+					b = b.parent;
+					parents[i] = b ? Array.IndexOf(bones, b) : -1;
+				}
+			}
+			// retarget axes.preQ for parent change (hips is already set relative to root)
+			for(int i=0; i<bones.Length; i++)
+				if(bones[i] && !(i < humanBones.Length && humanBones[i] == HumanBodyBones.Hips)) {
+					axes[i].preQ = Quaternion.Inverse((parents[i] < 0 ? animator.transform : bones[parents[i]]).rotation)
+								* bones[i].parent.rotation * axes[i].preQ;
+					if(parents[i] < 0)
+						axes[i].ClearPreQ();
+				}
+		}
 	}
 }
 }

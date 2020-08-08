@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.Linq;
+using Path = System.IO.Path;
 using UnityEngine;
 using UnityEditor;
 using GameObjectRecorder = UnityEditor.Animations.GameObjectRecorder;
@@ -30,13 +31,14 @@ public class HumanAnimatorRecorder {
 			var hideFlags = HideFlags.DontSaveInEditor; // | HideFlags.HideInHierarchy
 			surrogate[i] = EditorUtility.CreateGameObjectWithHideFlags($"_{i}", hideFlags).transform;
 			surrogate[i].SetParent(animator.transform, false);
-		}
-		ResetRecording();
-	}
-	public void ResetRecording() {
-		recorder.ResetRecording();
-		for(int i=0; i<HumanTrait.BoneCount; i++)
 			recorder.BindComponent(surrogate[i]);
+		}
+	}
+	public void Close() {
+		recorder.ResetRecording();
+		Object.Destroy(recorder);
+		for(int i=0; i<HumanTrait.BoneCount; i++)
+			Object.Destroy(surrogate[i].gameObject);
 	}
 	public void TakeSnapshot(float deltaTime) {
 		poseHandler.GetHumanPose(ref humanPose);
@@ -50,8 +52,8 @@ public class HumanAnimatorRecorder {
 		}
 		recorder.TakeSnapshot(deltaTime);
 	}
-	public void SaveToClip(AnimationClip clip) {
-		recorder.SaveToClip(clip);
+	public void SaveToClip(AnimationClip clip, float fps=60) {
+		recorder.SaveToClip(clip, fps);
 
 		var rootTCurves = new AnimationCurve[3];
 		var rootQCurves = new AnimationCurve[4];
@@ -91,6 +93,66 @@ public class HumanAnimatorRecorder {
 		for(int i=0; i<HumanTrait.MuscleCount; i++)
 			AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(
 				"", typeof(Animator), HumanTrait.MuscleName[i]), muscleCurves[i]);
+	}
+}
+class HumanAnimatorRecorderEditor : EditorWindow {
+	[MenuItem("ShaderMotion/Human Animator Recorder")]
+	static void Init() {
+		var window = EditorWindow.GetWindow<HumanAnimatorRecorderEditor>("Human Animator Recorder");
+		window.Show();
+	}
+
+	HumanAnimatorRecorder recorder = null;
+	Animator animator = null;
+	AnimationClip clip = null;
+	int frameRate = 60;
+	string path = null;
+	void OnGUI() {
+		animator = (Animator)EditorGUILayout.ObjectField("Animator", animator, typeof(Animator), true);
+		clip = (AnimationClip)EditorGUILayout.ObjectField("Output clip", clip, typeof(AnimationClip), false);
+		
+		if(clip && AssetDatabase.IsMainAsset(clip))
+			path = AssetDatabase.GetAssetPath(clip);
+		else if(string.IsNullOrEmpty(path) && animator)
+			path = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
+									$"{animator.name}_rec.anim");
+		var areaStyle = new GUIStyle(GUI.skin.textArea);
+		areaStyle.wordWrap = true;
+		path = EditorGUILayout.TextField("Output clip path", path, areaStyle, GUILayout.ExpandHeight(true));
+		frameRate = EditorGUILayout.IntField("Frame rate", frameRate);
+
+		EditorGUI.BeginDisabledGroup(!EditorApplication.isPlaying);
+		if(recorder == null) {
+			if(GUILayout.Button("Start")) {
+				recorder = new HumanAnimatorRecorder(animator);
+			}
+		} else if(!EditorApplication.isPlaying) {
+			recorder.Close();
+			recorder = null;
+		} else {
+			if(GUILayout.Button("Stop")) {
+				var newClip = false;
+				if(!clip) {
+					clip = new AnimationClip();
+					newClip = true;
+				}
+				clip.ClearCurves();
+				recorder.SaveToClip(clip, frameRate);
+				recorder.Close();
+				recorder = null;
+				if(newClip)
+					AssetDatabase.CreateAsset(clip, path);
+				else
+					AssetDatabase.SaveAssets();
+			}
+		}
+		EditorGUI.EndDisabledGroup();
+	}
+	void Update() {
+		if(!EditorApplication.isPlaying || EditorApplication.isPaused)
+			return;
+		if(recorder != null)
+			recorder.TakeSnapshot(Time.deltaTime);
 	}
 }
 }

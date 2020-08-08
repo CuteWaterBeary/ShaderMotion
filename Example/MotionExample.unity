@@ -368,7 +368,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 100142, guid: 9e5c42c5ad3198248a4b747d38b13421, type: 3}
       propertyPath: m_Name
-      value: PlayerAvatar
+      value: Avatar
       objectReference: {fileID: 0}
     - target: {fileID: 400000, guid: 9e5c42c5ad3198248a4b747d38b13421, type: 3}
       propertyPath: m_LocalPosition.x
@@ -563,7 +563,7 @@ GameObject:
   - component: {fileID: 982369846}
   - component: {fileID: 982369845}
   m_Layer: 0
-  m_Name: MotionAnimator
+  m_Name: AnimPlayer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -583,8 +583,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   motionBuffer: {fileID: 8600000, guid: 0247e5cfe3e145b4d9cba5360c02bfea, type: 2}
   animator: {fileID: 1393307623}
-  frameRate: 30
-  useRawMuscle: 0
+  applyHumanPose: 0
 --- !u!4 &982369846
 Transform:
   m_ObjectHideFlags: 0
@@ -804,7 +803,7 @@ GameObject:
   - component: {fileID: 1031773248}
   - component: {fileID: 1031773247}
   m_Layer: 0
-  m_Name: PlayerAvatar
+  m_Name: Avatar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1270,7 +1269,7 @@ GameObject:
   - component: {fileID: 1475176917}
   - component: {fileID: 1475176918}
   m_Layer: 0
-  m_Name: VideoPlayer
+  m_Name: Video
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1440,12 +1439,12 @@ GameObject:
   m_Component:
   - component: {fileID: 1726015654}
   m_Layer: 0
-  m_Name: VideoPlayer
+  m_Name: Video
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1726015654
 Transform:
   m_ObjectHideFlags: 0
@@ -1537,30 +1536,30 @@ SkinnedMeshRenderer:
   m_Mesh: {fileID: 4300000, guid: d917de1dcc28afe4aa6d39b5f088444e, type: 2}
   m_Bones:
   - {fileID: 1843254496}
-  - {fileID: 0}
   - {fileID: 642332458}
   - {fileID: 495133864}
   - {fileID: 0}
   - {fileID: 2109403367}
   - {fileID: 988296368}
-  - {fileID: 1629016821}
-  - {fileID: 390148249}
-  - {fileID: 2085278126}
-  - {fileID: 1898256032}
-  - {fileID: 1998459127}
-  - {fileID: 482419045}
   - {fileID: 188752211}
   - {fileID: 8429205}
   - {fileID: 2124118272}
   - {fileID: 280003209}
   - {fileID: 668067757}
   - {fileID: 1122207018}
-  - {fileID: 1653134003}
-  - {fileID: 2033741625}
+  - {fileID: 1629016821}
+  - {fileID: 390148249}
+  - {fileID: 2085278126}
+  - {fileID: 1898256032}
+  - {fileID: 1998459127}
+  - {fileID: 482419045}
   - {fileID: 1793469263}
   - {fileID: 131108247}
+  - {fileID: 1653134003}
+  - {fileID: 2033741625}
   - {fileID: 785283}
   - {fileID: 481798779}
+  - {fileID: 0}
   - {fileID: 2107791789}
   - {fileID: 85930396}
   - {fileID: 385494236}

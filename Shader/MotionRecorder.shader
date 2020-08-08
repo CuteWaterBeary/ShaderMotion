@@ -1,4 +1,4 @@
-Shader "Motion/Record" {
+Shader "Motion/Recorder" {
 Properties {
 	[ToggleUI] _ShowInDesktop ("ShowInDesktop", Float) = 1
 	_Id ("Id", Float) = 0
@@ -78,17 +78,23 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 
 	float2 flip = float2(_Id == 0 ? 1 : -1, _ProjectionParams.x);
 	float4 uv = float4(0,0,1,1);
-	float4 rec = (GetRect(base+idx) * 2 - 1) * flip.xyxy;
-	float data = typ < 3 ? unlerp(-PI, +PI, rotationToMuscle(rot)[typ] * sgn)
-				: typ < 6 ? unlerp(-_PositionLimit, +_PositionLimit, pos1[typ-3])
-				: unlerp(-1, +1, typ < 9 ? rot.c1[typ-6] : rot.c2[typ-9]);
-	EncodeUnorm(data, o.color);
+	float4 rec = (LocateSlot(base+idx) * 2 - 1) * flip.xyxy;
+	float data = typ < 3 ? rotationToMuscle(rot)[typ] * sgn / PI
+				: typ < 9 ? pos1[typ-(typ < 6 ? 3 : 6)] / _PositionLimit
+				: typ < 12 ? rot.c1[typ-9] : rot.c2[typ-12];
 
 	// background quad
-	if(i[0].tangent.w < 0) {
+	if(i[0].tangent.w < 0) { 
 		rec = (float4(0, 0, 6.0/80, 1) * 2 - 1) * flip.xyxy;
-		o.color[0] = o.color[1] = 0;
+		data = 0;
 	}
+
+	float3 c0, c1, c2, c3;
+	EncodeSigned(data, c0, c1, o.color[0], o.color[1]);
+	if(typ >= 3 && typ < 6)
+		o.color[0] = c0, o.color[1] = c1;
+
+	rec = round(rec * _ScreenParams.xyxy) / _ScreenParams.xyxy;
 
 	o.uv = uv.xy;
 	o.pos = float4(rec.xy, UNITY_NEAR_CLIP_VALUE, 1);
@@ -104,7 +110,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	stream.Append(o);
 }
 float4 frag(FragInput i) : SV_Target {
-	return float4(OutputUnorm(i.color, i.uv), 1);
+	return float4(RenderSlot(i.color, i.uv), 1);
 }
 ENDCG
 	}
