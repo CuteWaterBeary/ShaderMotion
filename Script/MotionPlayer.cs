@@ -10,6 +10,7 @@ public class MotionPlayer {
 	public Quaternion rootQ;
 	public Vector3 rootT;
 	public Vector3[] muscles;
+	public SkinnedMeshRenderer shapeRenderer = null;
 
 	HumanUtil.Armature armature;
 	FrameLayout layout;
@@ -86,6 +87,31 @@ public class MotionPlayer {
 		for(int i=0; i<HumanTrait.MuscleCount; i++)
 			pose.muscles[i] /= pose.muscles[i] >= 0 ? muscleLimits[i,1] : -muscleLimits[i,0];
 		poseHandler.SetHumanPose(ref pose);
+	}
+
+	float[] shapeWeights = null;
+	public void ApplyBlendShape() {
+		var mesh = shapeRenderer?.sharedMesh;
+		if(mesh != null && layout.shapeIndices != null && layout.shapeIndices.Count != 0) {
+			Array.Resize(ref shapeWeights, mesh.blendShapeCount);
+			for(int shape=0; shape<shapeWeights.Length; shape++)
+				shapeWeights[shape] = float.NaN;
+			foreach(var si in layout.shapeIndices) {
+				var shape = mesh.GetBlendShapeIndex(si.shape);
+				if(shape >= 0) {
+					var v = SampleSlot(si.index);
+					if(float.IsNaN(shapeWeights[shape]))
+						shapeWeights[shape] = 0;
+					shapeWeights[shape] += v * si.weight;
+				}
+			}
+			for(int shape=0; shape<shapeWeights.Length; shape++)
+				if(!float.IsNaN(shapeWeights[shape])) {
+					var frame = mesh.GetBlendShapeFrameCount(shape)-1;
+					var weight = mesh.GetBlendShapeFrameWeight(shape, frame);
+					shapeRenderer.SetBlendShapeWeight(shape, shapeWeights[shape] * weight);
+				}
+		}
 	}
 	Quaternion muscleToRotation(Vector3 muscle) {
 		var muscleYZ = new Vector3(0, muscle.y, muscle.z);

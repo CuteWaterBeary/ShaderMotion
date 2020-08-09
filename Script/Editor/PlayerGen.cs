@@ -78,20 +78,23 @@ public class PlayerGen {
 			}
 
 		var uvShape = new List<Vector4>[srcMesh.vertexCount];
-		var deltaVertices = new Vector3[srcMesh.vertexCount];
-		foreach(var kw in layout.shapeIndices) {
-			var slot = kw.Value;
-			var shapeIndex = srcMesh.GetBlendShapeIndex(kw.Key);
-			if(shapeIndex < 0)
-				continue;
-			var frameIndex = srcMesh.GetBlendShapeFrameCount(shapeIndex)-1;
-			// Debug.Log($"shapeIndex={shapeIndex}, frameIndex={frameIndex}");
-			srcMesh.GetBlendShapeFrameVertices(shapeIndex, frameIndex, deltaVertices, null, null);
-
-			for(int v=0; v<srcMesh.vertexCount; v++) {
-				var dv = deltaVertices[v];
-				if(dv != Vector3.zero) {
-					var vertex = srcVertices[v];
+		var dverts = new Vector3[srcMesh.vertexCount];
+		var dsums  = new Vector3[srcMesh.vertexCount];
+		foreach(var sis in layout.shapeIndices.GroupBy(si => si.index)) {
+			var slot = -1;
+			Array.Clear(dsums, 0, dsums.Length);
+			foreach(var si in sis) {
+				var shape = srcMesh.GetBlendShapeIndex(si.shape);
+				if(shape >= 0) {
+					slot = si.index;
+					var frame = srcMesh.GetBlendShapeFrameCount(shape)-1;
+					srcMesh.GetBlendShapeFrameVertices(shape, frame, dverts, null, null);
+					for(int v=0; v<srcMesh.vertexCount; v++)
+						dsums[v] += dverts[v] * si.weight;
+				}
+			}
+			for(int v=0; v<srcMesh.vertexCount; v++)
+				if(dsums[v] != Vector3.zero) {
 					var normal = srcNormals[v];
 					var tangent = (Vector3)srcTangents[v];
 					var bitangent = Vector3.Cross(normal, tangent);
@@ -99,16 +102,14 @@ public class PlayerGen {
 					m.SetColumn(0, normal);
 					m.SetColumn(1, tangent);
 					m.SetColumn(2, bitangent);
-					dv = m.inverse.MultiplyPoint3x4(deltaVertices[v]);
-
+					var dlocal = m.inverse.MultiplyPoint3x4(dsums[v]);
 					uvShape[v] = uvShape[v] ?? new List<Vector4>();
-					uvShape[v].Add((Vector4)dv + new Vector4(0,0,0,slot));
+					uvShape[v].Add((Vector4)dlocal + new Vector4(0,0,0,slot));
 				}
-			}
 		}
 		for(int v=0; v<srcMesh.vertexCount; v++)
 			if(uvShape[v] != null) {
-				uvShape[v].Sort((d0, d1) => -((Vector3)d0).sqrMagnitude.CompareTo(((Vector3)d1).sqrMagnitude));
+				// uvShape[v].Sort((d0, d1) => -((Vector3)d0).sqrMagnitude.CompareTo(((Vector3)d1).sqrMagnitude));
 				if(uvShape[v].Count > shapeQuality)
 					Debug.LogWarning($"vertex has more than {shapeQuality} shapes: {uvShape[v].Count}");
 			}
@@ -152,14 +153,14 @@ public class PlayerGen {
 		var path0 = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
 							animator.name);
 
-		var mr = smr.transform.parent.Find("MotionReplay")?.GetComponent<MeshRenderer>();
+		var mr = smr.transform.parent.Find("MotionPlayer")?.GetComponent<MeshRenderer>();
 		if(!mr) {
 			var mesh = new Mesh();
-			var path = $"{path0}_replay.asset";
+			var path = $"{path0}_player.asset";
 			AssetDatabase.CreateAsset(mesh, path);
 			Debug.Log($"Create mesh @ {path}");
 
-			var go = new GameObject("MotionReplay", typeof(MeshRenderer), typeof(MeshFilter));
+			var go = new GameObject("MotionPlayer", typeof(MeshRenderer), typeof(MeshFilter));
 			go.transform.SetParent(animator.transform, false);
 			mr = go.GetComponent<MeshRenderer>();
 			mr.GetComponent<MeshFilter>().sharedMesh = mesh;
@@ -167,7 +168,7 @@ public class PlayerGen {
 		var mat = mr.sharedMaterial;
 		if(!mat) {
 			mr.sharedMaterial = mat = Object.Instantiate(Resources.Load<Material>("MotionPlayer"));
-			var path = $"{path0}_replay.mat";
+			var path = $"{path0}_player.mat";
 			AssetDatabase.CreateAsset(mat, path);
 			Debug.Log($"Create material @ {path}");
 
@@ -184,14 +185,11 @@ public class PlayerGen {
 			mat.SetTexture("_Armature", tex);
 		}
 
-		var shapeBaseSlot = 80;
 		var srcMesh = smr.sharedMesh;
-		var shapeNames = new[]{"VRC.v_aa", "VRC.v_CH", "VRC.v_ou"};
-
 		var dstMesh = mr.GetComponent<MeshFilter>().sharedMesh;
 		var arm = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
 		var layout = new FrameLayout(arm, FrameLayout.defaultOverrides);
-		layout.shapeIndices = shapeNames.Select((n,i) => new KeyValuePair<string, int>(n, shapeBaseSlot+i)).ToArray();
+		layout.AddDecoderVisemeShapes(srcMesh);
 
 		GenPlayerTex(arm, layout, tex);
 		GenPlayerMesh(arm, layout, dstMesh, srcMesh, smr.bones);

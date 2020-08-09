@@ -27,27 +27,49 @@ public class RecorderGen {
 				preM = postM = Matrix4x4.identity;
 			}
 			var slot = layout.baseIndices[i];
-			foreach(var j in layout.channels[i]) {
+			foreach(var chan in layout.channels[i]) {
 				vertices.Add(Vector3.zero);
 				normals. Add(arm.scale * preM.GetColumn(1));
 				tangents.Add(arm.scale * preM.GetColumn(2) + new Vector4(0,0,0, slot));
-				boneWeights.Add(par >= 0 ? new BoneWeight{boneIndex0=par, weight0=1/arm.scale} : new BoneWeight{});
+				boneWeights.Add(par >= 0 ? new BoneWeight{boneIndex0=par, weight0=1} : new BoneWeight{});
 
 				vertices.Add(Vector3.zero);
 				normals. Add(arm.scale * postM.GetColumn(1));
-				tangents.Add(arm.scale * postM.GetColumn(2) + new Vector4(0,0,0, arm.axes[i].sign * (j+1)));
-				boneWeights.Add(new BoneWeight{boneIndex0=i, weight0=1/arm.scale});
+				tangents.Add(arm.scale * postM.GetColumn(2) + new Vector4(0,0,0, chan));
+				boneWeights.Add(new BoneWeight{boneIndex0=i, weight0=1});
 
 				vertices.Add(Vector3.zero);
 				normals. Add(Vector3.zero);
-				tangents.Add(Vector4.zero);
-				boneWeights.Add(new BoneWeight{boneIndex0=i, weight0=1/arm.scale});
+				tangents.Add(new Vector4(0,0,0, par >= 0 ? arm.axes[i].sign : 0));
+				boneWeights.Add(new BoneWeight{boneIndex0=i, weight0=1});
 				slot++;
 			}
 		}
+		var slotToVertex = new Dictionary<int, int>();
+		foreach(var slot in layout.shapeIndices.Select(si => si.index).Distinct()) {
+			var chan = 7;
+			var scale = arm.scale/1024;
+			var postM = Matrix4x4.identity;
+			slotToVertex[slot] = vertices.Count + 1;
 
-		mesh.Clear();
+			vertices.Add(Vector3.zero);
+			normals. Add(scale * postM.GetColumn(1));
+			tangents.Add(scale * postM.GetColumn(2) + new Vector4(0,0,0, slot));
+			boneWeights.Add(new BoneWeight{weight0=1});
+
+			vertices.Add(Vector3.zero);
+			normals. Add(scale * postM.GetColumn(1));
+			tangents.Add(scale * postM.GetColumn(2) + new Vector4(0,0,0, chan));
+			boneWeights.Add(new BoneWeight{weight0=1});
+
+			vertices.Add(Vector3.zero);
+			normals. Add(Vector3.zero);
+			tangents.Add(new Vector4(0,0,0, 1));
+			boneWeights.Add(new BoneWeight{weight0=1});
+		}
+
 		mesh.ClearBlendShapes();
+		mesh.Clear();
 		mesh.subMeshCount = 1;
 		mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt16;
 		mesh.SetVertices(vertices);
@@ -56,7 +78,22 @@ public class RecorderGen {
 		mesh.boneWeights = boneWeights.ToArray();
 		mesh.bindposes = bindposes;
 		mesh.triangles = Enumerable.Range(0, vertices.Count).ToArray();
-		mesh.bounds = bounds;
+
+		var sizeXZ = Mathf.Max(bounds.size.x, bounds.size.z);
+		mesh.bounds = new Bounds(bounds.center, new Vector3(sizeXZ, bounds.size.y, sizeXZ));
+		
+		var dvertices = new Vector3[vertices.Count];
+		foreach(var sis in layout.shapeIndices.GroupBy(si => si.shape)) {
+			string shape = null;
+			Array.Clear(dvertices, 0, dvertices.Length);
+			foreach(var si in sis) {
+				shape = si.shape;
+				var v = slotToVertex[si.index];
+				dvertices[v] += normals[v]*2 * si.weight;
+			}
+			mesh.AddBlendShapeFrame(shape, 100, dvertices, null, null);
+		}
+		// mesh.UploadMeshData(false);
 	}
 	[MenuItem("ShaderMotion/Generate Recorder")]
 	static void GenRecorderMesh() {
@@ -68,14 +105,14 @@ public class RecorderGen {
 		var path0 = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
 							animator.name);
 
-		var smr = animator.transform.Find("MotionRecord")?.GetComponent<SkinnedMeshRenderer>();
+		var smr = animator.transform.Find("MotionRecorder")?.GetComponent<SkinnedMeshRenderer>();
 		if(!smr) {
 			var mesh = new Mesh();
-			var path = $"{path0}_record.asset";
+			var path = $"{path0}_recorder.asset";
 			AssetDatabase.CreateAsset(mesh, path);
 			Debug.Log($"Create mesh @ {path}");
 
-			var go = new GameObject("MotionRecord", typeof(SkinnedMeshRenderer));
+			var go = new GameObject("MotionRecorder", typeof(SkinnedMeshRenderer));
 			go.transform.SetParent(animator.transform, false);
 			smr = go.GetComponent<SkinnedMeshRenderer>();
 			smr.sharedMesh = mesh;
@@ -88,6 +125,7 @@ public class RecorderGen {
 			var mesh = smr.sharedMesh;
 			var armature = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
 			var layout = new FrameLayout(armature, FrameLayout.defaultOverrides);
+			layout.AddEncoderVisemeShapes();
 			GenRecorderMesh(armature, layout, mesh);
 			smr.bones = armature.bones;
 			AssetDatabase.SaveAssets();

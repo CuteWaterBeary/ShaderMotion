@@ -60,53 +60,54 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	if(!( !IsStereo && (IsOrtho || IsTilted || _ShowInDesktop) && !IsInMirror ))
 		return;
 
-	uint  idx = i[0].tangent.w;
-	uint  typ = abs(i[1].tangent.w) - 1;
-	float sgn = i[1].tangent.w > 0 ? +1 : -1;
+	uint  slot = i[0].tangent.w;
+	uint  chan = i[1].tangent.w;
+	float sign = i[2].tangent.w;
 
-	float3 pos1 = i[1].vertex / length(i[1].normal);
+	// compute relative rot/pos
+	// r0 is seen as (scale(r1) * id) when sign == 0 
 	float3x3 r0 = i[0].GetRotation();
 	float3x3 r1 = i[1].GetRotation();
 	float3x3 rot;
-	rot.c1 = normalize(typ < 3 ? mul(transpose(r0), r1.c1) : r1.c1);
-	rot.c2 = normalize(typ < 3 ? mul(transpose(r0), r1.c2) : r1.c2);
+	rot.c1 = normalize(sign != 0 ? mul(transpose(r0), r1.c1) : r1.c1);
+	rot.c2 = normalize(sign != 0 ? mul(transpose(r0), r1.c2) : r1.c2);
 	rot.c0 = cross(rot.c1, rot.c2);
+	float3 pos = sign != 0 ? mul(transpose(r0), i[1].vertex-i[0].vertex) / dot(r0.c1, r0.c1)
+							: (i[1].vertex-i[0].vertex) / length(r1.c1);
 
 	FragInput o;
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-	uint base=0;
 
 	float2 flip = float2(_Id == 0 ? 1 : -1, _ProjectionParams.x);
-	float4 uv = float4(0,0,1,1);
-	float4 rec = (LocateSlot(base+idx) * 2 - 1) * flip.xyxy;
-	float data = typ < 3 ? rotationToMuscle(rot)[typ] * sgn / PI
-				: typ < 9 ? pos1[typ-(typ < 6 ? 3 : 6)] / _PositionLimit
-				: typ < 12 ? rot.c1[typ-9] : rot.c2[typ-12];
+	float4 rect = (LocateSlot(slot) * 2 - 1) * flip.xyxy;
+	float  data = chan < 3 ? rotationToMuscle(rot)[chan] * sign / PI
+				: chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)] / _PositionLimit
+				: chan < 12 ? rot.c1[chan-9] : rot.c2[chan-12];
 
 	// background quad
 	if(i[0].tangent.w < 0) { 
-		rec = (float4(0, 0, 6.0/80, 1) * 2 - 1) * flip.xyxy;
+		rect = (float4(0, 0, 6.0/80, 1) * 2 - 1) * flip.xyxy;
 		data = 0;
 	}
 
 	float3 c0, c1, c2, c3;
 	EncodeSigned(data, c0, c1, o.color[0], o.color[1]);
-	if(typ >= 3 && typ < 6)
+	if(chan >= 3 && chan < 6)
 		o.color[0] = c0, o.color[1] = c1;
 
-	rec = round(rec * _ScreenParams.xyxy) / _ScreenParams.xyxy;
-
+	float4 uv = float4(0,0,1,1);
+	rect = round(rect * _ScreenParams.xyxy) / _ScreenParams.xyxy;
 	o.uv = uv.xy;
-	o.pos = float4(rec.xy, UNITY_NEAR_CLIP_VALUE, 1);
+	o.pos = float4(rect.xy, UNITY_NEAR_CLIP_VALUE, 1);
 	stream.Append(o);
 	o.uv = uv.xw;
-	o.pos = float4(rec.xw, UNITY_NEAR_CLIP_VALUE, 1);
+	o.pos = float4(rect.xw, UNITY_NEAR_CLIP_VALUE, 1);
 	stream.Append(o);
 	o.uv = uv.zy;
-	o.pos = float4(rec.zy, UNITY_NEAR_CLIP_VALUE, 1);
+	o.pos = float4(rect.zy, UNITY_NEAR_CLIP_VALUE, 1);
 	stream.Append(o);
 	o.uv = uv.zw;
-	o.pos = float4(rec.zw, UNITY_NEAR_CLIP_VALUE, 1);
+	o.pos = float4(rect.zw, UNITY_NEAR_CLIP_VALUE, 1);
 	stream.Append(o);
 }
 float4 frag(FragInput i) : SV_Target {

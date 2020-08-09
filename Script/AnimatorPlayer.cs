@@ -24,6 +24,7 @@ public class GPUReader {
 public class AnimatorPlayer : MonoBehaviour  {
 	public RenderTexture motionBuffer;
 	public Animator animator;
+	public SkinnedMeshRenderer shapeRenderer;
 	public bool applyHumanPose = false;
 	
 	GPUReader gpuReader = new GPUReader();
@@ -37,12 +38,15 @@ public class AnimatorPlayer : MonoBehaviour  {
 				player.ApplyHumanPose();
 			else
 				player.ApplyTransform();
+			player.ApplyBlendShape();
 		}
 	}
 	void Start() {
 		var armature = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
 		var layout = new FrameLayout(armature, FrameLayout.defaultOverrides);
+		layout.AddDecoderVisemeShapes(shapeRenderer?.sharedMesh);
 		player = new MotionPlayer(armature, layout);
+		player.shapeRenderer = shapeRenderer;
 	}
 }
 }

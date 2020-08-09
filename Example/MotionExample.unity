@@ -353,6 +353,12 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!137 &665420433 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 13700000, guid: 9e5c42c5ad3198248a4b747d38b13421,
+    type: 3}
+  m_PrefabInstance: {fileID: 1393307622}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &668067757 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 400018, guid: 9e5c42c5ad3198248a4b747d38b13421,
@@ -536,7 +542,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000, guid: a883f2f8325af554b889715993976178, type: 2}
     - target: {fileID: 9500000, guid: 9e5c42c5ad3198248a4b747d38b13421, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 9e5c42c5ad3198248a4b747d38b13421, type: 3}
@@ -583,6 +589,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   motionBuffer: {fileID: 8600000, guid: 0247e5cfe3e145b4d9cba5360c02bfea, type: 2}
   animator: {fileID: 1393307623}
+  shapeRenderer: {fileID: 665420433}
   applyHumanPose: 0
 --- !u!4 &982369846
 Transform:
@@ -987,7 +994,7 @@ GameObject:
   - component: {fileID: 1206450932}
   - component: {fileID: 1206450931}
   m_Layer: 0
-  m_Name: MotionReplay
+  m_Name: MotionPlayer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1472,7 +1479,7 @@ GameObject:
   - component: {fileID: 1753145013}
   - component: {fileID: 1753145014}
   m_Layer: 0
-  m_Name: MotionRecord
+  m_Name: MotionRecorder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1590,11 +1597,24 @@ SkinnedMeshRenderer:
   - {fileID: 1043419184}
   - {fileID: 255321141}
   - {fileID: 304330352}
-  m_BlendShapeWeights: []
+  m_BlendShapeWeights:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
   m_RootBone: {fileID: 1621130139}
   m_AABB:
     m_Center: {x: -0.00000035762787, y: 0.86126447, z: -0.0029115677}
-    m_Extent: {x: 0.9981042, y: 0.86126447, z: 0.12820283}
+    m_Extent: {x: 0.9981042, y: 0.86126447, z: 0.9981042}
   m_DirtyAABB: 0
 --- !u!4 &1793469263 stripped
 Transform:

@@ -137,7 +137,6 @@ void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal) {
 			i.GetShape(J, shape, dvertex);
 			if(shape > 0) {
 				float wt = sampleSigned(shape);
-				// wt = shape == 82;
 				vertex += mul(mat, dvertex) * wt;
 			}
 		}

@@ -3,12 +3,18 @@ using System.Linq;
 using Array = System.Array;
 using Path = System.IO.Path;
 using UnityEngine;
+using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
 public class FrameLayout {
+	public struct ShapeIndex {
+		public string shape;
+		public int index;
+		public float weight;
+	}
 	public int[][] channels;
 	public int[]   baseIndices;
-	public KeyValuePair<string,int>[] shapeIndices = null;
+	public List<ShapeIndex> shapeIndices = new List<ShapeIndex>();
 	public FrameLayout(HumanUtil.Armature arm, Dictionary<int,int> overrides=null) {
 		channels = new int[arm.bones.Length][];
 		baseIndices = new int[arm.bones.Length];
@@ -98,5 +104,54 @@ public class FrameLayout {
 	public static Dictionary<int,int> defaultOverrides = new Dictionary<int,int>{
 		{25, 90},
 	};
+
+	public void AddEncoderVisemeShapes(Mesh mesh=null, int baseIndex=80) {
+		foreach(var vc in visemeTable)
+			for(int i=0; i<3; i++)
+				if(vc.Value[i] != 0) {
+					var name = "v_"+vc.Key;
+					shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=vc.Value[i]});
+				}
+	}
+	public void AddDecoderVisemeShapes(Mesh mesh=null, int baseIndex=80) {
+		var shapeNames = new List<string>();
+		if(mesh)
+			for(int i=0; i<mesh.blendShapeCount; i++)
+				shapeNames.Add(mesh.GetBlendShapeName(i));
+
+		foreach(var vc in visemeTable)
+			for(int i=0; i<3; i++)
+				if(vc.Value[i] == 1) {
+					var name = searchVisemeName(shapeNames, vc.Key);
+					shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=vc.Value[i]});
+				}
+	}
+	static KeyValuePair<string, Vector3>[] visemeTable = new KeyValuePair<string, Vector3>[]{
+		 new KeyValuePair<string, Vector3>("aa", new Vector3(1.0f, 0.0f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("ch", new Vector3(0.0f, 1.0f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("dd", new Vector3(0.3f, 0.7f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("e",  new Vector3(0.0f, 0.7f, 0.3f)),
+		 new KeyValuePair<string, Vector3>("ff", new Vector3(0.2f, 0.4f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("ih", new Vector3(0.5f, 0.2f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("kk", new Vector3(0.7f, 0.4f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("nn", new Vector3(0.2f, 0.7f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("oh", new Vector3(0.2f, 0.0f, 0.8f)),
+		 new KeyValuePair<string, Vector3>("ou", new Vector3(0.0f, 0.0f, 1.0f)),
+		 new KeyValuePair<string, Vector3>("pp", new Vector3(0.0f, 0.0f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("rr", new Vector3(0.0f, 0.5f, 0.3f)),
+		 new KeyValuePair<string, Vector3>("ss", new Vector3(0.0f, 0.8f, 0.0f)),
+		 new KeyValuePair<string, Vector3>("th", new Vector3(0.4f, 0.0f, 0.15f)),
+	};
+	string searchVisemeName(IEnumerable<string> names, string viseme) {
+		var r = new Regex($@"\bv_{viseme}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		foreach(var name in names)
+			if(r.IsMatch(name))
+				return name;
+		r = new Regex($@"\b{viseme}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		foreach(var name in names)
+			if(r.IsMatch(name))
+				return name;
+		return $"v_{viseme}";
+    }
 }
 }
