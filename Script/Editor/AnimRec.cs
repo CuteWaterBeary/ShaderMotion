@@ -96,9 +96,9 @@ public class HumanAnimatorRecorder {
 	}
 }
 class HumanAnimatorRecorderEditor : EditorWindow {
-	[MenuItem("ShaderMotion/Human Animator Recorder")]
+	[MenuItem("ShaderMotion/Record Humanoid Animation")]
 	static void Init() {
-		var window = EditorWindow.GetWindow<HumanAnimatorRecorderEditor>("Human Animator Recorder");
+		var window = EditorWindow.GetWindow<HumanAnimatorRecorderEditor>("Record Humanoid Animation");
 		window.Show();
 	}
 

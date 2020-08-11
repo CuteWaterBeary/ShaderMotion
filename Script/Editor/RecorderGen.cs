@@ -8,7 +8,7 @@ using UnityEditor;
 
 namespace ShaderMotion {
 public class RecorderGen {
-	public static void GenRecorderMesh(HumanUtil.Armature arm, FrameLayout layout, Mesh mesh) {
+	public static void CreateRecorderMesh(HumanUtil.Armature arm, FrameLayout layout, Mesh mesh) {
 		var bindposes = arm.bones.Select(b => Matrix4x4.Scale( // unscale bone in bindpose
 							(arm.root.worldToLocalMatrix * (b??arm.root).localToWorldMatrix).lossyScale).inverse).ToArray();
 		var bounds = new Bounds();
@@ -93,54 +93,54 @@ public class RecorderGen {
 			}
 			mesh.AddBlendShapeFrame(shape, 100, dvertices, null, null);
 		}
-		// mesh.UploadMeshData(false);
 	}
-	[MenuItem("ShaderMotion/Generate Recorder")]
-	static void GenRecorderMesh() {
+	static SkinnedMeshRenderer CreateRecorder(SkinnedMeshRenderer recorder, Animator animator, string assetPrefix) {
+		if(!recorder) {
+			var mesh = new Mesh();
+			AssetDatabase.CreateAsset(mesh, assetPrefix + "_recorder.asset");
+
+			var go = new GameObject("", typeof(SkinnedMeshRenderer));
+			recorder = go.GetComponent<SkinnedMeshRenderer>();
+			recorder.rootBone = animator.transform;
+			recorder.sharedMesh = mesh;
+			recorder.sharedMaterial = Resources.Load<Material>("MotionRecorder");
+		}
+
+		{
+			var armature = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
+			var layout = new FrameLayout(armature, FrameLayout.defaultOverrides);
+			layout.AddEncoderVisemeShapes();
+			CreateRecorderMesh(armature, layout, recorder.sharedMesh);
+			recorder.bones = armature.bones;
+			AssetDatabase.SaveAssets();
+
+			if(recorder.rootBone == animator.transform)
+				recorder.localBounds = recorder.sharedMesh.bounds;
+		}
+		return recorder;
+	}
+	[MenuItem("ShaderMotion/Create Shader Recorder")]
+	static void CreateRecorder() {
 		var animator = Selection.activeGameObject.GetComponentInParent<Animator>();
 		if(!(animator && animator.isHuman)) {
 			Debug.LogError($"Expect a human Animator on {Selection.activeGameObject}");
 			return;
 		}
-		var path0 = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
-							animator.name);
 
-		var smr = animator.transform.Find("MotionRecorder")?.GetComponent<SkinnedMeshRenderer>();
-		if(!smr) {
-			var mesh = new Mesh();
-			var path = $"{path0}_recorder.asset";
-			AssetDatabase.CreateAsset(mesh, path);
-			Debug.Log($"Create mesh @ {path}");
+		var parent = animator.transform;
+		var name = "Recorder";
+		var assetPrefix = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
+							"auto", animator.name);
+		if(!System.IO.Directory.Exists(Path.GetDirectoryName(assetPrefix)))
+			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(assetPrefix));
 
-			var go = new GameObject("MotionRecorder", typeof(SkinnedMeshRenderer));
-			go.transform.SetParent(animator.transform, false);
-			smr = go.GetComponent<SkinnedMeshRenderer>();
-			smr.sharedMesh = mesh;
+		var recorder0 = parent.Find(name)?.GetComponent<SkinnedMeshRenderer>();
+		var recorder = CreateRecorder(recorder0, animator, assetPrefix);
+		if(!recorder0) {
+			recorder.name = name;
+			recorder.transform.SetParent(parent, false);
 		}
-		var mat = smr.sharedMaterial;
-		if(!mat)
-			smr.sharedMaterial = mat = Resources.Load<Material>("MotionRecorder");
-
-		{
-			var mesh = smr.sharedMesh;
-			var armature = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
-			var layout = new FrameLayout(armature, FrameLayout.defaultOverrides);
-			layout.AddEncoderVisemeShapes();
-			GenRecorderMesh(armature, layout, mesh);
-			smr.bones = armature.bones;
-			AssetDatabase.SaveAssets();
-
-			if(!smr.rootBone)
-				smr.rootBone = animator.transform;
-			// rescale the anchor, useful for boundary safety system
-			if(smr.rootBone != animator.transform)
-				smr.rootBone.localScale = new Vector3(1,1,1) * HumanUtil.GetHumanScale(animator);
-
-			var scale = smr.rootBone.localScale;
-			scale = new Vector3(1/scale.x, 1/scale.y, 1/scale.z);
-			smr.localBounds = new Bounds(Vector3.Scale(scale,mesh.bounds.center),
-										Vector3.Scale(scale,mesh.bounds.size));
-		}
+		Selection.activeGameObject = recorder.gameObject;
 	}
 }
 }

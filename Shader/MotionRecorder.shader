@@ -1,12 +1,12 @@
 Shader "Motion/Recorder" {
 Properties {
-	[ToggleUI] _ShowInDesktop ("ShowInDesktop", Float) = 1
+	// [ToggleUI] _ShowInDesktop ("ShowInDesktop", Float) = 1
 	_Id ("Id", Float) = 0
 }
 SubShader {
 	Tags { "Queue"="Overlay" "RenderType"="Overlay" "PreviewType"="Plane" }
 	Pass {
-		Lighting Off
+		Tags { "LightMode"="Vertex" }
 		Cull Off
 		ZTest Always ZWrite Off
 CGPROGRAM
@@ -57,7 +57,9 @@ void vert(VertInput i, out GeomInput o) {
 void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	UNITY_SETUP_INSTANCE_ID(i[0]);
 
-	if(!( !IsStereo && (IsOrtho || IsTilted || _ShowInDesktop) && !IsInMirror ))
+	// if(!( !IsStereo && (IsOrtho || IsTilted || _ShowInDesktop) && !IsInMirror ))
+	// 	return;
+	if(!( IsOrtho && !IsInMirror ))
 		return;
 
 	uint  slot = i[0].tangent.w;

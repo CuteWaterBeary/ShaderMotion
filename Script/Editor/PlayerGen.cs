@@ -8,7 +8,7 @@ using UnityEditor;
 
 namespace ShaderMotion {
 public class PlayerGen {
-	public static void GenPlayerTex(HumanUtil.Armature arm, FrameLayout layout, Texture2D tex) {
+	public static void CreatePlayerTex(HumanUtil.Armature arm, FrameLayout layout, Texture2D tex) {
 		var boneData = new int[arm.bones.Length, 2];
 		for(int i=0; i<arm.bones.Length; i++) {
 			var start = layout.baseIndices[i] - (layout.channels[i][0] - (layout.channels[i][0] < 3 ? 0 : 3));
@@ -41,7 +41,7 @@ public class PlayerGen {
 		tex.SetPixels(colors);
 		tex.Apply(false, false);
 	}
-	public static void GenPlayerMesh(HumanUtil.Armature arm, FrameLayout layout, Mesh mesh, Mesh srcMesh, Transform[] srcBones, int quality=2, int shapeQuality=4) {
+	public static void CreatePlayerMesh(HumanUtil.Armature arm, FrameLayout layout, Mesh mesh, Mesh srcMesh, Transform[] srcBones, int quality=2, int shapeQuality=4) {
 		var hipsIndex = Array.IndexOf(arm.humanBones, HumanBodyBones.Hips);
 
 		// rescale bone in bindpose because motion armature has no scale
@@ -138,11 +138,42 @@ public class PlayerGen {
 		bounds.max += new Vector3(1,0,1) * arm.scale;
 		mesh.bounds = bounds;
 	}
-	[MenuItem("ShaderMotion/Generate Player")]
-	static void GenPlayerMesh() {
+	static MeshRenderer CreatePlayer(MeshRenderer player, Animator animator, SkinnedMeshRenderer smr, string assetPrefix) {
+		if(!player) {
+			var mesh = new Mesh();
+			var mat = Object.Instantiate(Resources.Load<Material>("MotionPlayer"));
+			var tex = new Texture2D(1,1);
+			mat.mainTexture = smr.sharedMaterial.mainTexture;
+			mat.SetTexture("_Armature", tex);
+			AssetDatabase.CreateAsset(tex,  assetPrefix + "_armature.asset");
+			AssetDatabase.CreateAsset(mat,  assetPrefix + "_player.mat");
+			AssetDatabase.CreateAsset(mesh, assetPrefix + "_player.asset");
+
+			var go = new GameObject("", typeof(MeshRenderer), typeof(MeshFilter));
+			player = go.GetComponent<MeshRenderer>();
+			player.GetComponent<MeshFilter>().sharedMesh = mesh;
+			player.sharedMaterial = mat;
+		}
+		{
+			var tex = (Texture2D)player.sharedMaterial.GetTexture("_Armature");
+			var srcMesh = smr.sharedMesh;
+			var dstMesh = player.GetComponent<MeshFilter>().sharedMesh;
+			var arm = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
+			var layout = new FrameLayout(arm, FrameLayout.defaultOverrides);
+			layout.AddDecoderVisemeShapes(srcMesh);
+
+			CreatePlayerTex(arm, layout, tex);
+			CreatePlayerMesh(arm, layout, dstMesh, srcMesh, smr.bones);
+
+			AssetDatabase.SaveAssets();
+		}
+		return player;
+	}
+	[MenuItem("ShaderMotion/Create Shader Player")]
+	static void CreatePlayer() {
 		var smr = Selection.activeGameObject.GetComponent<SkinnedMeshRenderer>();
 		if(!smr) {
-			Debug.LogError($"Require a SkinnedMeshRenderer on {Selection.activeGameObject}");
+			Debug.LogError($"Require a body SkinnedMeshRenderer on {Selection.activeGameObject}");
 			return;
 		}
 		var animator = smr.gameObject.GetComponentInParent<Animator>();
@@ -150,51 +181,22 @@ public class PlayerGen {
 			Debug.LogError($"Expect a human Animator");
 			return;
 		}
-		var path0 = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
-							animator.name);
 
-		var mr = smr.transform.parent.Find("MotionPlayer")?.GetComponent<MeshRenderer>();
-		if(!mr) {
-			var mesh = new Mesh();
-			var path = $"{path0}_player.asset";
-			AssetDatabase.CreateAsset(mesh, path);
-			Debug.Log($"Create mesh @ {path}");
+		var parent = animator.transform.parent;
+		var name = animator.name + ".Player";
+		var assetPrefix = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
+							"auto", animator.name);
+		if(!System.IO.Directory.Exists(Path.GetDirectoryName(assetPrefix)))
+			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(assetPrefix));
 
-			var go = new GameObject("MotionPlayer", typeof(MeshRenderer), typeof(MeshFilter));
-			go.transform.SetParent(animator.transform, false);
-			mr = go.GetComponent<MeshRenderer>();
-			mr.GetComponent<MeshFilter>().sharedMesh = mesh;
+		var player0 = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
+						?.GetComponent<MeshRenderer>();
+		var player = CreatePlayer(player0, animator, smr, assetPrefix);
+		if(!player0) {
+			player.name = name;
+			player.transform.SetParent(parent, false);
 		}
-		var mat = mr.sharedMaterial;
-		if(!mat) {
-			mr.sharedMaterial = mat = Object.Instantiate(Resources.Load<Material>("MotionPlayer"));
-			var path = $"{path0}_player.mat";
-			AssetDatabase.CreateAsset(mat, path);
-			Debug.Log($"Create material @ {path}");
-
-			mat.mainTexture = smr.sharedMaterial.mainTexture;
-			mat.color = smr.sharedMaterial.color;
-		}
-		var tex = (Texture2D)mat.GetTexture("_Armature");
-		if(!tex) {
-			tex = new Texture2D(1,1);
-			var path = $"{path0}_armature.asset";
-			AssetDatabase.CreateAsset(tex, path);
-			Debug.Log($"Create texture @ {path}");
-
-			mat.SetTexture("_Armature", tex);
-		}
-
-		var srcMesh = smr.sharedMesh;
-		var dstMesh = mr.GetComponent<MeshFilter>().sharedMesh;
-		var arm = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
-		var layout = new FrameLayout(arm, FrameLayout.defaultOverrides);
-		layout.AddDecoderVisemeShapes(srcMesh);
-
-		GenPlayerTex(arm, layout, tex);
-		GenPlayerMesh(arm, layout, dstMesh, srcMesh, smr.bones);
-
-		AssetDatabase.SaveAssets();
+		Selection.activeGameObject = player.gameObject;
 	}
 }
 }

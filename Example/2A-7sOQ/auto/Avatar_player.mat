@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: TutorialAvatar_replay
+  m_Name: Avatar_player
   m_Shader: {fileID: 4800000, guid: 00a71ddf3b7dffc489c7eab664308baa, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -20,11 +20,11 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _Armature:
-        m_Texture: {fileID: 2800000, guid: 079ca120375874345bb7616adc25f10e, type: 2}
+        m_Texture: {fileID: 2800000, guid: 57728dee051233646a41cf4ab4a746da, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: bddff5de867305c4dac3556271c673a5, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:
@@ -35,4 +35,4 @@ Material:
     - _Id: 0
     - _NearClip: 0
     m_Colors:
-    - _Color: {r: 0.8396226, g: 0.8396226, b: 0.8396226, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
