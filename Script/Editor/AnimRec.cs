@@ -21,6 +21,7 @@ public class HumanAnimatorRecorder {
 	HumanPose humanPose = new HumanPose();
 	GameObjectRecorder recorder;
 	Transform[] surrogate;
+	float bodyScale;
 
 	public HumanAnimatorRecorder(Animator animator) {
 		this.animator    = animator;
@@ -33,16 +34,23 @@ public class HumanAnimatorRecorder {
 			surrogate[i].SetParent(animator.transform, false);
 			recorder.BindComponent(surrogate[i]);
 		}
+		var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+		this.bodyScale = hips.parent.lossyScale.y / animator.transform.lossyScale.y;
 	}
 	public void Close() {
-		recorder.ResetRecording();
-		Object.Destroy(recorder);
+		var destroy = EditorApplication.isPlaying ? (System.Action<Object>)Object.Destroy : (System.Action<Object>)Object.DestroyImmediate;
+		if(recorder) {
+			recorder.ResetRecording();
+			destroy(recorder);
+		}
 		for(int i=0; i<HumanTrait.BoneCount; i++)
-			Object.Destroy(surrogate[i].gameObject);
+			if(surrogate[i])
+				destroy(surrogate[i].gameObject);
 	}
 	public void TakeSnapshot(float deltaTime) {
 		poseHandler.GetHumanPose(ref humanPose);
-		surrogate[0].SetPositionAndRotation(humanPose.bodyPosition, humanPose.bodyRotation);
+		surrogate[0].localPosition = humanPose.bodyPosition * bodyScale; // TODO
+		surrogate[0].localRotation = humanPose.bodyRotation;
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
 			var pos = Vector3.zero;
 			for(int j=0; j<3; j++)
@@ -144,6 +152,10 @@ class HumanAnimatorRecorderEditor : EditorWindow {
 					AssetDatabase.CreateAsset(clip, path);
 				else
 					AssetDatabase.SaveAssets();
+			}
+			if(GUILayout.Button("Cancel")) {
+				recorder.Close();
+				recorder = null;
 			}
 		}
 		EditorGUI.EndDisabledGroup();
