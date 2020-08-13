@@ -1,7 +1,7 @@
 Shader "Motion/Recorder" {
 Properties {
-	// [ToggleUI] _ShowInDesktop ("ShowInDesktop", Float) = 1
-	_Id ("Id", Float) = 0
+	[ToggleUI] _AlwaysVisible ("AlwaysVisible", Float) = 0
+	_Layer ("Layer", Float) = 0
 }
 SubShader {
 	Tags { "Queue"="Overlay" "RenderType"="Overlay" "PreviewType"="Plane" }
@@ -17,10 +17,9 @@ CGPROGRAM
 #include <UnityCG.cginc>
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
-#include "Condition.hlsl"
 
-float _ShowInDesktop;
-float _Id;
+float _AlwaysVisible;
+float _Layer;
 static float _PositionLimit = 2;
 
 struct VertInput {
@@ -57,10 +56,15 @@ void vert(VertInput i, out GeomInput o) {
 void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	UNITY_SETUP_INSTANCE_ID(i[0]);
 
-	// if(!( !IsStereo && (IsOrtho || IsTilted || _ShowInDesktop) && !IsInMirror ))
-	// 	return;
-	if(!( IsOrtho && !IsInMirror ))
-		return;
+	#if defined(USING_STEREO_MATRICES)
+		return; // no VR
+	#endif
+	if(_AlwaysVisible == 0) {
+		if(!(unity_OrthoParams.w && _ProjectionParams.y * _ProjectionParams.z < 0))
+			return; // require ortho camera with near<0
+		if(determinant((float3x3)UNITY_MATRIX_V) > 0)
+			return; // no mirror
+	}
 
 	uint  slot = i[0].tangent.w;
 	uint  chan = i[1].tangent.w;
@@ -80,7 +84,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	FragInput o;
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-	float2 flip = float2(_Id == 0 ? 1 : -1, _ProjectionParams.x);
+	float2 flip = float2(_Layer == 0 ? 1 : -1, _ProjectionParams.x);
 	float4 rect = (LocateSlot(slot) * 2 - 1) * flip.xyxy;
 	float  data = chan < 3 ? rotationToMuscle(rot)[chan] * sign / PI
 				: chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)] / _PositionLimit

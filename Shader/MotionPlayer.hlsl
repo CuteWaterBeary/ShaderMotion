@@ -1,13 +1,9 @@
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
 
+const static float _PositionScale = 2;
+float _RotationTolerance;
 Texture2D _Armature;
-Texture2D _Motion, _MotionDecoded;
-static float _PositionScale = 2;
-
-UNITY_INSTANCING_BUFFER_START(Props)
-	UNITY_DEFINE_INSTANCED_PROP(float, _Id)
-UNITY_INSTANCING_BUFFER_END(Props)
 
 #define QUALITY 2
 struct VertInputPlayer {
@@ -31,53 +27,32 @@ struct VertInputPlayer {
 	}
 };
 
-
-float sampleSigned(uint idx) {
-	float4 rect = LocateSlot(idx);
-	float id = UNITY_ACCESS_INSTANCED_PROP(Props, _Id);
-	if(id != 0)
-		rect.xz = 1-rect.xz;
-#ifdef _ALPHAPREMULTIPLY_ON
-	return SampleSlot(_MotionDecoded, rect);
+float sampleSigned(uint idx0, uint idx1, float4 st, bool highRange) {
+	float4 rect0 = LocateSlot(idx0) * st.xyxy + st.zwzw;
+	float4 rect1 = LocateSlot(idx1) * st.xyxy + st.zwzw;
+#ifdef _Motion_Decoded
+	return SampleSlot_MergeSigned(_Motion_Decoded, rect0, rect1, highRange);
 #else
-	return SampleSlot_DecodeSigned(_Motion, rect);
+	return SampleSlot_DecodeSigned(_Motion_Encoded, rect0, rect1, highRange);
 #endif
 }
-float sampleSigned(uint idx0, uint idx1) {
-	float4 rect0 = LocateSlot(idx0);
-	float4 rect1 = LocateSlot(idx1);
-	float id = UNITY_ACCESS_INSTANCED_PROP(Props, _Id);
-	if(id != 0)
-		rect0.xz = 1-rect0.xz, rect1.xz = 1-rect1.xz;
-#ifdef _ALPHAPREMULTIPLY_ON
-	return SampleSlot_MergeSigned(_MotionDecoded, rect0, rect1);
-#else
-	return SampleSlot_DecodeSigned(_Motion, rect0, rect1);
-#endif
-}
-
-float3 sampleSigned3(uint idx) {
+float3 sampleSigned3(uint idx0, uint idx1, float4 st, bool highRange=true) {
 	float o[3] = {0,0,0};
 	UNITY_LOOP
 	for(uint K=0; K<3; K++)
-		o[K] = sampleSigned(idx+K);
+		o[K] = sampleSigned(idx0+K, idx1+K, st, highRange);
 	return float3(o[0], o[1], o[2]);
 }
-float3 sampleSigned3(uint idx0, uint idx1) {
-	float o[3] = {0,0,0};
-	UNITY_LOOP
-	for(uint K=0; K<3; K++)
-		o[K] = sampleSigned(idx0+K, idx1+K);
-	return float3(o[0], o[1], o[2]);
+float sampleSigned(uint idx, float4 st) {
+	return sampleSigned(idx, idx, st, false);
 }
-float3x3 rotationYZ(float3 c1, float3 c2) {
-	float3x3 rot;
-	rot.c1 = c1 = normalize(c1);
-	rot.c2 = c2 = normalize(c2 - dot(c2, c1) * c1);
-	rot.c0 = cross(c1, c2);
-	return rot;
+float3 sampleSigned3(uint idx, float4 st) {
+	return sampleSigned3(idx, idx, st, false);
 }
-void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal) {
+void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal, float layer, bool highRange=true) {
+	float4 st = layer == 0 ? float4(1,1,0,0) : float4(-1,1,1,0);
+	float NaN = sqrt(-unity_ObjectToWorld._44);
+
 	vertex = normal = 0;
 	float3 tangent = 0;
 	for(uint J=0; J<QUALITY; J++) {
@@ -93,13 +68,18 @@ void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal) {
 			float4 data1 = _Armature.Load(uint3(1, bone, 0));
 			uint idx = data0.w;
 
-			float3 offset = _PositionScale * sampleSigned3(idx, idx+3);
+			float3 offset = _PositionScale * sampleSigned3(idx, idx+3, st, highRange);
 			pos += offset * data0.y;
 			rot  = mulEulerYXZ(rot, data1.xyz);
 
-			float3 c1 = sampleSigned3(idx+6);
-			float3 c2 = sampleSigned3(idx+9);
-			rot = mul(rot, rotationYZ(c1, c2));
+			float3 c1 = sampleSigned3(idx+6, st);
+			float3 c2 = sampleSigned3(idx+9, st);
+			float3x3 r;
+			orthonormalize(c1, c2, r.c1, r.c2);
+			r.c0 = cross(r.c1, r.c2);
+			rot = mul(rot, r);
+			if(dot(r.c1-c1, r.c1-c1) + dot(r.c2-c2, r.c2-c2) > _RotationTolerance*_RotationTolerance)
+				pos = NaN;
 		}
 		for(uint I=2; I<30; I+=2) {
 			float4 data0 = _Armature.Load(uint3(I+0, bone, 0));
@@ -112,7 +92,7 @@ void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal) {
 			rot  = mulEulerYXZ(rot, data1.xyz);
 			
 			uint maskSign = data1.w;
-			float3 muscle = PI * sampleSigned3(idx);
+			float3 muscle = PI * sampleSigned3(idx, st);
 			muscle = !(maskSign & uint3(1,2,4)) ? 0 : maskSign & 8 ? -muscle : muscle;
 			rot = mul(rot, muscleToRotation(muscle));
 		}
@@ -136,7 +116,7 @@ void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal) {
 			float3 dvertex;
 			i.GetShape(J, shape, dvertex);
 			if(shape > 0) {
-				float wt = sampleSigned(shape);
+				float wt = sampleSigned(shape, st);
 				vertex += mul(mat, dvertex) * wt;
 			}
 		}

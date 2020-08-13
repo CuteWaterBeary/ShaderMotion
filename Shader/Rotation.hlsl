@@ -40,3 +40,8 @@ float3x3 mulEulerYXZ(float3x3 m, float3 rad) {
 	m.c1 = m0.c1*co.z - m0.c0*si.z;
 	return m;
 }
+void orthonormalize(float3 u, float3 v, out float3 U, out float3 V) {
+	float rsq = rsqrt(abs(dot(u,u)*dot(v,v)-dot(u,v)*dot(u,v)));
+	U = normalize(u+rsq*(dot(v,v)*u-dot(u,v)*v));
+	V = normalize(v+rsq*(dot(u,u)*v-dot(u,v)*u));
+}

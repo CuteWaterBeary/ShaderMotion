@@ -14,7 +14,8 @@ Properties {
 	[Header(Motion)]
 	[NoScaleOffset]_Armature ("Armature", 2D) = "black" {}
 	[Toggle(_ALPHAPREMULTIPLY_ON)] _Decoded ("Decoded", Float) = 0
-	_Id ("Id", Float) = 0
+	_Layer ("Layer", Float) = 0
+	_RotationTolerance ("RotationTolerance", Range(0, 1)) = 0.1
 }
 SubShader {
 	Tags { "Queue"="Geometry" "RenderType"="Opaque" }
@@ -31,15 +32,28 @@ CGPROGRAM
 #pragma multi_compile_instancing
 #include <UnityCG.cginc>
 #include <Lighting.cginc>
+
+UNITY_INSTANCING_BUFFER_START(Props)
+	UNITY_DEFINE_INSTANCED_PROP(float, _Layer)
+UNITY_INSTANCING_BUFFER_END(Props)
+
+#ifdef _ALPHAPREMULTIPLY_ON
+	Texture2D _MotionDecoded;
+	#define _Motion_Decoded _MotionDecoded
+#else
+	Texture2D _Motion;
+	#define _Motion_Encoded _Motion
+#endif
+
 #include "MotionPlayer.hlsl"
 #include "Frag.hlsl"
 
 void vert(VertInputPlayer i, out FragInput o) {
 	UNITY_SETUP_INSTANCE_ID(i);
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-	
+
 	float3 vertex, normal;
-	SkinVertex(i, vertex, normal);
+	SkinVertex(i, vertex, normal, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer));
 	
 	o.vertex = mul(unity_ObjectToWorld, float4(vertex, 1));
 	o.normal = mul(unity_ObjectToWorld, float4(normal, 0));
