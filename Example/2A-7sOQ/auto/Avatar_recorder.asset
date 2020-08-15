@@ -21,83 +21,11 @@ Mesh:
       m_Extent: {x: 0, y: 0, z: 0}
   m_Shapes:
     vertices:
-    - vertex: {x: 0, y: 0.0014636562, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 355
-    - vertex: {x: 0, y: 0.0014636562, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 358
-    - vertex: {x: 0, y: 0.00043909688, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 355
-    - vertex: {x: 0, y: 0.0010245594, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 358
-    - vertex: {x: 0, y: 0.0010245594, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 358
-    - vertex: {x: 0, y: 0.00043909688, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 361
     - vertex: {x: 0, y: 0.00029273125, z: 0}
       normal: {x: 0, y: 0, z: 0}
       tangent: {x: 0, y: 0, z: 0}
       index: 355
     - vertex: {x: 0, y: 0.0005854625, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 358
-    - vertex: {x: 0, y: 0.0007318281, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 355
-    - vertex: {x: 0, y: 0.00029273125, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 358
-    - vertex: {x: 0, y: 0.0010245594, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 355
-    - vertex: {x: 0, y: 0.0005854625, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 358
-    - vertex: {x: 0, y: 0.00029273125, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 355
-    - vertex: {x: 0, y: 0.0010245594, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 358
-    - vertex: {x: 0, y: 0.00029273125, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 355
-    - vertex: {x: 0, y: 0.001170925, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 361
-    - vertex: {x: 0, y: 0.0014636562, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 361
-    - vertex: {x: 0, y: 0.0007318281, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 358
-    - vertex: {x: 0, y: 0.00043909688, z: 0}
-      normal: {x: 0, y: 0, z: 0}
-      tangent: {x: 0, y: 0, z: 0}
-      index: 361
-    - vertex: {x: 0, y: 0.001170925, z: 0}
       normal: {x: 0, y: 0, z: 0}
       tangent: {x: 0, y: 0, z: 0}
       index: 358
@@ -109,13 +37,89 @@ Mesh:
       normal: {x: 0, y: 0, z: 0}
       tangent: {x: 0, y: 0, z: 0}
       index: 361
+    - vertex: {x: 0, y: 0.00043909688, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 355
+    - vertex: {x: 0, y: 0.0010245594, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 358
+    - vertex: {x: 0, y: 0.0010245594, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 355
+    - vertex: {x: 0, y: 0.0005854625, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 358
+    - vertex: {x: 0, y: 0.0014636562, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 358
+    - vertex: {x: 0, y: 0.001170925, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 358
+    - vertex: {x: 0, y: 0.00029273125, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 355
+    - vertex: {x: 0, y: 0.0010245594, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 358
+    - vertex: {x: 0, y: 0.0007318281, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 358
+    - vertex: {x: 0, y: 0.00043909688, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 361
+    - vertex: {x: 0, y: 0.0014636562, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 355
+    - vertex: {x: 0, y: 0.0010245594, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 358
+    - vertex: {x: 0, y: 0.00043909688, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 361
+    - vertex: {x: 0, y: 0.0007318281, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 355
+    - vertex: {x: 0, y: 0.00029273125, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 358
+    - vertex: {x: 0, y: 0.00029273125, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 355
+    - vertex: {x: 0, y: 0.001170925, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 361
+    - vertex: {x: 0, y: 0.0014636562, z: 0}
+      normal: {x: 0, y: 0, z: 0}
+      tangent: {x: 0, y: 0, z: 0}
+      index: 361
     shapes:
     - firstVertex: 0
-      vertexCount: 1
+      vertexCount: 0
       hasNormals: 0
       hasTangents: 0
-    - firstVertex: 1
-      vertexCount: 1
+    - firstVertex: 0
+      vertexCount: 0
+      hasNormals: 0
+      hasTangents: 0
+    - firstVertex: 0
+      vertexCount: 2
       hasNormals: 0
       hasTangents: 0
     - firstVertex: 2
@@ -131,7 +135,11 @@ Mesh:
       hasNormals: 0
       hasTangents: 0
     - firstVertex: 8
-      vertexCount: 2
+      vertexCount: 1
+      hasNormals: 0
+      hasTangents: 0
+    - firstVertex: 9
+      vertexCount: 1
       hasNormals: 0
       hasTangents: 0
     - firstVertex: 10
@@ -143,11 +151,11 @@ Mesh:
       hasNormals: 0
       hasTangents: 0
     - firstVertex: 14
-      vertexCount: 2
+      vertexCount: 1
       hasNormals: 0
       hasTangents: 0
-    - firstVertex: 16
-      vertexCount: 1
+    - firstVertex: 15
+      vertexCount: 2
       hasNormals: 0
       hasTangents: 0
     - firstVertex: 17
@@ -155,67 +163,77 @@ Mesh:
       hasNormals: 0
       hasTangents: 0
     - firstVertex: 19
-      vertexCount: 1
-      hasNormals: 0
-      hasTangents: 0
-    - firstVertex: 20
       vertexCount: 2
       hasNormals: 0
       hasTangents: 0
+    - firstVertex: 21
+      vertexCount: 1
+      hasNormals: 0
+      hasTangents: 0
     channels:
-    - name: v_aa
-      nameHash: 1319322361
+    - name: v_sil
+      nameHash: 2236798482
       frameIndex: 0
       frameCount: 1
-    - name: v_ch
-      nameHash: 88709343
+    - name: v_PP
+      nameHash: 3642770801
       frameIndex: 1
       frameCount: 1
-    - name: v_dd
-      nameHash: 1136542259
+    - name: v_FF
+      nameHash: 829179383
       frameIndex: 2
       frameCount: 1
-    - name: v_e
-      nameHash: 2948995516
+    - name: v_TH
+      nameHash: 2921338915
       frameIndex: 3
       frameCount: 1
-    - name: v_ff
-      nameHash: 2676375965
+    - name: v_DD
+      nameHash: 3981723225
       frameIndex: 4
-      frameCount: 1
-    - name: v_ih
-      nameHash: 4289097813
-      frameIndex: 5
       frameCount: 1
     - name: v_kk
       nameHash: 1419330413
+      frameIndex: 5
+      frameCount: 1
+    - name: v_CH
+      nameHash: 2879626421
       frameIndex: 6
+      frameCount: 1
+    - name: v_SS
+      nameHash: 1795442440
+      frameIndex: 7
       frameCount: 1
     - name: v_nn
       nameHash: 1501840295
-      frameIndex: 7
+      frameIndex: 8
+      frameCount: 1
+    - name: v_RR
+      nameHash: 85477087
+      frameIndex: 9
+      frameCount: 1
+    - name: v_aa
+      nameHash: 1319322361
+      frameIndex: 10
+      frameCount: 1
+    - name: v_E
+      nameHash: 2494052724
+      frameIndex: 11
+      frameCount: 1
+    - name: v_ih
+      nameHash: 4289097813
+      frameIndex: 12
       frameCount: 1
     - name: v_oh
       nameHash: 2851919827
-      frameIndex: 8
+      frameIndex: 13
       frameCount: 1
     - name: v_ou
       nameHash: 3405429514
-      frameIndex: 9
-      frameCount: 1
-    - name: v_rr
-      nameHash: 2884780725
-      frameIndex: 10
-      frameCount: 1
-    - name: v_ss
-      nameHash: 3320726370
-      frameIndex: 11
-      frameCount: 1
-    - name: v_th
-      nameHash: 13245513
-      frameIndex: 12
+      frameIndex: 14
       frameCount: 1
     fullWeights:
+    - 100
+    - 100
     - 100
     - 100
     - 100

@@ -1,6 +1,6 @@
 Shader "Motion/Recorder" {
 Properties {
-	[ToggleUI] _AlwaysVisible ("AlwaysVisible", Float) = 0
+	[ToggleUI] _AutoHide ("AutoHide", Float) = 1
 	_Layer ("Layer", Float) = 0
 }
 SubShader {
@@ -18,7 +18,7 @@ CGPROGRAM
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
 
-float _AlwaysVisible;
+float _AutoHide;
 float _Layer;
 static float _PositionLimit = 2;
 
@@ -59,12 +59,10 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	#if defined(USING_STEREO_MATRICES)
 		return; // no VR
 	#endif
-	if(_AlwaysVisible == 0) {
-		if(!(unity_OrthoParams.w && _ProjectionParams.y * _ProjectionParams.z < 0))
-			return; // require ortho camera with near<0
-		if(determinant((float3x3)UNITY_MATRIX_V) > 0)
-			return; // no mirror
-	}
+	if(_AutoHide && !(unity_OrthoParams.w != 0 && _ProjectionParams.z == 0))
+		return; // require ortho camera with far == 0 when autohide is on 
+	if(determinant((float3x3)UNITY_MATRIX_V) > 0)
+		return; // no mirror
 
 	uint  slot = i[0].tangent.w;
 	uint  chan = i[1].tangent.w;

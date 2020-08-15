@@ -138,21 +138,27 @@ public class PlayerGen {
 		bounds.max += new Vector3(1,0,1) * arm.scale;
 		mesh.bounds = bounds;
 	}
-	static MeshRenderer CreatePlayer(MeshRenderer player, Animator animator, SkinnedMeshRenderer smr, string assetPrefix) {
+	public static MeshRenderer CreatePlayer(string name, Transform parent, Animator animator, SkinnedMeshRenderer smr, string assetPath) {
+		var player = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
+							?.GetComponent<MeshRenderer>();
 		if(!player) {
+			if(!System.IO.Directory.Exists(Path.GetDirectoryName(assetPath)))
+				System.IO.Directory.CreateDirectory(Path.GetDirectoryName(assetPath));
+
 			var mesh = new Mesh();
 			var mat = Object.Instantiate(Resources.Load<Material>("MotionPlayer"));
 			var tex = new Texture2D(1,1);
 			mat.mainTexture = smr.sharedMaterial.mainTexture;
 			mat.SetTexture("_Armature", tex);
-			AssetDatabase.CreateAsset(tex,  assetPrefix + "_armature.asset");
-			AssetDatabase.CreateAsset(mat,  assetPrefix + "_player.mat");
-			AssetDatabase.CreateAsset(mesh, assetPrefix + "_player.asset");
+			AssetDatabase.CreateAsset(tex,  assetPath + "_armature.asset");
+			AssetDatabase.CreateAsset(mat,  assetPath + "_player.mat");
+			AssetDatabase.CreateAsset(mesh, assetPath + "_player.asset");
 
-			var go = new GameObject("", typeof(MeshRenderer), typeof(MeshFilter));
+			var go = new GameObject(name, typeof(MeshRenderer), typeof(MeshFilter));
 			player = go.GetComponent<MeshRenderer>();
 			player.GetComponent<MeshFilter>().sharedMesh = mesh;
 			player.sharedMaterial = mat;
+			player.transform.SetParent(parent, false);
 		}
 		{
 			var tex = (Texture2D)player.sharedMaterial.GetTexture("_Armature");
@@ -164,38 +170,18 @@ public class PlayerGen {
 
 			CreatePlayerTex(arm, layout, tex);
 			CreatePlayerMesh(arm, layout, dstMesh, srcMesh, smr.bones);
-
 			AssetDatabase.SaveAssets();
 		}
 		return player;
 	}
-	[MenuItem("ShaderMotion/Create Shader Player")]
-	static void CreatePlayer() {
-		var smr = Selection.activeGameObject.GetComponent<SkinnedMeshRenderer>();
-		if(!smr) {
-			Debug.LogError($"Require a body SkinnedMeshRenderer on {Selection.activeGameObject}");
-			return;
-		}
+	[MenuItem("CONTEXT/SkinnedMeshRenderer/CreateShaderPlayer")]
+	static void CreatePlayer(MenuCommand command) {
+		var smr = (SkinnedMeshRenderer)command.context;
 		var animator = smr.gameObject.GetComponentInParent<Animator>();
-		if(!(animator && animator.isHuman)) {
-			Debug.LogError($"Expect a human Animator");
-			return;
-		}
+		var assetPath = RecorderGen.GenerateAssetPath(animator);
 
-		var parent = animator.transform.parent;
-		var name = animator.name + ".Player";
-		var assetPrefix = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
-							"auto", animator.name);
-		if(!System.IO.Directory.Exists(Path.GetDirectoryName(assetPrefix)))
-			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(assetPrefix));
-
-		var player0 = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
-						?.GetComponent<MeshRenderer>();
-		var player = CreatePlayer(player0, animator, smr, assetPrefix);
-		if(!player0) {
-			player.name = name;
-			player.transform.SetParent(parent, false);
-		}
+		var player = CreatePlayer($"{animator.name}.Player", animator.transform.parent,
+											animator, smr, assetPath);
 		Selection.activeGameObject = player.gameObject;
 	}
 }

@@ -33,6 +33,8 @@ Material:
     - _Cutoff: 0
     - _Decoded: 0
     - _Id: 0
+    - _Layer: 0
     - _NearClip: 0
+    - _RotationTolerance: 0.1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}

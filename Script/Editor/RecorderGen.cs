@@ -90,20 +90,29 @@ public class RecorderGen {
 				shape = si.shape;
 				var v = slotToVertex[si.index];
 				dvertices[v] += normals[v]*2 * si.weight;
+				// move unused vertex a bit because Unity doesn't create empty blendshape
+				if(si.weight == 0)
+					dvertices[v+1] += new Vector3(0,1e-5f,0);
 			}
 			mesh.AddBlendShapeFrame(shape, 100, dvertices, null, null);
 		}
 	}
-	static SkinnedMeshRenderer CreateRecorder(SkinnedMeshRenderer recorder, Animator animator, string assetPrefix) {
+	public static SkinnedMeshRenderer CreateRecorder(string name, Transform parent, Animator animator, string assetPath) {
+		var recorder = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
+							?.GetComponent<SkinnedMeshRenderer>();
 		if(!recorder) {
-			var mesh = new Mesh();
-			AssetDatabase.CreateAsset(mesh, assetPrefix + "_recorder.asset");
+			if(!System.IO.Directory.Exists(Path.GetDirectoryName(assetPath)))
+				System.IO.Directory.CreateDirectory(Path.GetDirectoryName(assetPath));
 
-			var go = new GameObject("", typeof(SkinnedMeshRenderer));
+			var mesh = new Mesh();
+			AssetDatabase.CreateAsset(mesh, assetPath + "_recorder.asset");
+
+			var go = new GameObject(name, typeof(SkinnedMeshRenderer));
 			recorder = go.GetComponent<SkinnedMeshRenderer>();
-			recorder.rootBone = animator.transform;
+			recorder.rootBone = recorder.transform;
 			recorder.sharedMesh = mesh;
 			recorder.sharedMaterial = Resources.Load<Material>("MotionRecorder");
+			recorder.transform.SetParent(parent, false);
 		}
 
 		{
@@ -114,32 +123,22 @@ public class RecorderGen {
 			recorder.bones = armature.bones;
 			AssetDatabase.SaveAssets();
 
-			if(recorder.rootBone == animator.transform)
-				recorder.localBounds = recorder.sharedMesh.bounds;
+			var bounds = recorder.sharedMesh.bounds;
+			recorder.localBounds = new Bounds(bounds.center/armature.scale, bounds.size/armature.scale);
+			recorder.transform.localScale = new Vector3(1,1,1)*armature.scale;
 		}
 		return recorder;
 	}
-	[MenuItem("ShaderMotion/Create Shader Recorder")]
-	static void CreateRecorder() {
-		var animator = Selection.activeGameObject.GetComponentInParent<Animator>();
-		if(!(animator && animator.isHuman)) {
-			Debug.LogError($"Expect a human Animator on {Selection.activeGameObject}");
-			return;
-		}
-
-		var parent = animator.transform;
-		var name = "Recorder";
-		var assetPrefix = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
+	public static string GenerateAssetPath(Animator animator) {
+		return Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
 							"auto", animator.name);
-		if(!System.IO.Directory.Exists(Path.GetDirectoryName(assetPrefix)))
-			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(assetPrefix));
+	}
+	[MenuItem("CONTEXT/Animator/CreateShaderRecorder")]
+	static void CreateRecorder(MenuCommand command) {
+		var animator = (Animator)command.context;
+		var assetPath = GenerateAssetPath(animator);
 
-		var recorder0 = parent.Find(name)?.GetComponent<SkinnedMeshRenderer>();
-		var recorder = CreateRecorder(recorder0, animator, assetPrefix);
-		if(!recorder0) {
-			recorder.name = name;
-			recorder.transform.SetParent(parent, false);
-		}
+		var recorder = CreateRecorder("Recorder", animator.transform, animator, assetPath);
 		Selection.activeGameObject = recorder.gameObject;
 	}
 }

@@ -17,25 +17,28 @@ public class HumanAnimatorRecorder {
 	}
 
 	Animator animator;
+	Transform hips;
 	HumanPoseHandler poseHandler;
 	HumanPose humanPose = new HumanPose();
 	GameObjectRecorder recorder;
-	Transform[] surrogate;
+	Transform[] surrogates;
 	float bodyScale;
 
 	public HumanAnimatorRecorder(Animator animator) {
 		this.animator    = animator;
+		this.hips        = animator.GetBoneTransform(HumanBodyBones.Hips);
 		this.poseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
 		this.recorder    = new GameObjectRecorder(animator.gameObject);
-		this.surrogate   = new Transform[HumanTrait.BoneCount];
+		this.surrogates  = new Transform[HumanTrait.BoneCount];
+
+		var hideFlags = HideFlags.DontSaveInEditor; // | HideFlags.HideInHierarchy
+		var surrogateRoot = EditorUtility.CreateGameObjectWithHideFlags("_bones_", hideFlags).transform;
+		surrogateRoot.SetParent(animator.transform, false);
 		for(int i=0; i<HumanTrait.BoneCount; i++) {
-			var hideFlags = HideFlags.DontSaveInEditor; // | HideFlags.HideInHierarchy
-			surrogate[i] = EditorUtility.CreateGameObjectWithHideFlags($"_{i}", hideFlags).transform;
-			surrogate[i].SetParent(animator.transform, false);
-			recorder.BindComponent(surrogate[i]);
+			surrogates[i] = EditorUtility.CreateGameObjectWithHideFlags(HumanTrait.BoneName[i], hideFlags).transform;
+			surrogates[i].SetParent(surrogateRoot, false);
+			recorder.BindComponent(surrogates[i]);
 		}
-		var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
-		this.bodyScale = hips.parent.lossyScale.y / animator.transform.lossyScale.y;
 	}
 	public void Close() {
 		var destroy = EditorApplication.isPlaying ? (System.Action<Object>)Object.Destroy : (System.Action<Object>)Object.DestroyImmediate;
@@ -43,30 +46,36 @@ public class HumanAnimatorRecorder {
 			recorder.ResetRecording();
 			destroy(recorder);
 		}
-		for(int i=0; i<HumanTrait.BoneCount; i++)
-			if(surrogate[i])
-				destroy(surrogate[i].gameObject);
+		if(surrogates[0])
+			destroy(surrogates[0].parent.gameObject);	
 	}
 	public void TakeSnapshot(float deltaTime) {
 		poseHandler.GetHumanPose(ref humanPose);
-		surrogate[0].localPosition = humanPose.bodyPosition * bodyScale; // TODO
-		surrogate[0].localRotation = humanPose.bodyRotation;
+
+		surrogates[0].rotation = humanPose.bodyRotation;
+		surrogates[0].localPosition =
+			animator.transform.InverseTransformVector(Vector3.Scale(hips.parent.lossyScale, 
+				humanPose.bodyPosition * animator.humanScale - animator.transform.position));
+
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
 			var pos = Vector3.zero;
 			for(int j=0; j<3; j++)
 				if(boneMuscles[i, j] >= 0)
 					pos[j] = humanPose.muscles[boneMuscles[i, j]];
-			surrogate[i].localPosition = pos;
+			surrogates[i].localPosition = pos;
 		}
 		recorder.TakeSnapshot(deltaTime);
 	}
 	public void SaveToClip(AnimationClip clip, float fps=60) {
+		if(!recorder.isRecording)
+			return;
+
 		recorder.SaveToClip(clip, fps);
 
 		var rootTCurves = new AnimationCurve[3];
 		var rootQCurves = new AnimationCurve[4];
 		{
-			var path = AnimationUtility.CalculateTransformPath(surrogate[0], animator.transform);
+			var path = AnimationUtility.CalculateTransformPath(surrogates[0], animator.transform);
 			for(int j=0; j<3; j++)
 				rootTCurves[j] = AnimationUtility.GetEditorCurve(clip,
 					EditorCurveBinding.FloatCurve(path, typeof(Transform), $"m_LocalPosition.{axes[j]}"));
@@ -76,7 +85,7 @@ public class HumanAnimatorRecorder {
 		}
 		var muscleCurves = new AnimationCurve[HumanTrait.MuscleCount];
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
-			var path = AnimationUtility.CalculateTransformPath(surrogate[i], animator.transform);
+			var path = AnimationUtility.CalculateTransformPath(surrogates[i], animator.transform);
 			for(int j=0; j<3; j++)
 				if(boneMuscles[i, j] >= 0)
 					muscleCurves[boneMuscles[i, j]] = AnimationUtility.GetEditorCurve(clip,
@@ -85,11 +94,14 @@ public class HumanAnimatorRecorder {
 
 		clip.ClearCurves();
 
-		// set BakeIntoPose = true
+		// set BakeIntoPose = true, BasedUpon = origin
 		var so = new SerializedObject(clip);
 		so.FindProperty("m_AnimationClipSettings.m_LoopBlendOrientation").boolValue = true;
 		so.FindProperty("m_AnimationClipSettings.m_LoopBlendPositionY").boolValue = true;
 		so.FindProperty("m_AnimationClipSettings.m_LoopBlendPositionXZ").boolValue = true;
+		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalOrientation").boolValue = true;
+		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalPositionY").boolValue = true;
+		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalPositionXZ").boolValue = true;
 		so.ApplyModifiedProperties();
 
 		for(int i=0; i<3; i++)
@@ -103,33 +115,24 @@ public class HumanAnimatorRecorder {
 				"", typeof(Animator), HumanTrait.MuscleName[i]), muscleCurves[i]);
 	}
 }
-class HumanAnimatorRecorderEditor : EditorWindow {
-	[MenuItem("ShaderMotion/Record Humanoid Animation")]
-	static void Init() {
-		var window = EditorWindow.GetWindow<HumanAnimatorRecorderEditor>("Record Humanoid Animation");
+class HumanAnimatorRecorderEW : EditorWindow {
+	[MenuItem("CONTEXT/Animator/RecordAnimation")]
+	static void RecordAnimation(MenuCommand command) {
+		var animator = (Animator)command.context;
+		var window = EditorWindow.GetWindow<HumanAnimatorRecorderEW>("RecordAnimation");
 		window.Show();
+		window.animator = animator;
 	}
 
 	HumanAnimatorRecorder recorder = null;
 	Animator animator = null;
 	AnimationClip clip = null;
-	int frameRate = 60;
-	string path = null;
+	int frameRate = 30;
 	void OnGUI() {
 		animator = (Animator)EditorGUILayout.ObjectField("Animator", animator, typeof(Animator), true);
-		clip = (AnimationClip)EditorGUILayout.ObjectField("Output clip", clip, typeof(AnimationClip), false);
-		
-		if(clip && AssetDatabase.IsMainAsset(clip))
-			path = AssetDatabase.GetAssetPath(clip);
-		else if(string.IsNullOrEmpty(path) && animator)
-			path = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
-									$"{animator.name}_rec.anim");
-		var areaStyle = new GUIStyle(GUI.skin.textArea);
-		areaStyle.wordWrap = true;
-		path = EditorGUILayout.TextField("Output clip path", path, areaStyle, GUILayout.ExpandHeight(true));
-		frameRate = EditorGUILayout.IntField("Frame rate", frameRate);
+		clip = (AnimationClip)EditorGUILayout.ObjectField("Clip", clip, typeof(AnimationClip), false);
+		frameRate = EditorGUILayout.IntSlider("Frame rate", frameRate, 1, 120);
 
-		EditorGUI.BeginDisabledGroup(!EditorApplication.isPlaying);
 		if(recorder == null) {
 			if(GUILayout.Button("Start")) {
 				recorder = new HumanAnimatorRecorder(animator);
@@ -139,26 +142,13 @@ class HumanAnimatorRecorderEditor : EditorWindow {
 			recorder = null;
 		} else {
 			if(GUILayout.Button("Stop")) {
-				var newClip = false;
-				if(!clip) {
-					clip = new AnimationClip();
-					newClip = true;
-				}
 				clip.ClearCurves();
 				recorder.SaveToClip(clip, frameRate);
 				recorder.Close();
 				recorder = null;
-				if(newClip)
-					AssetDatabase.CreateAsset(clip, path);
-				else
-					AssetDatabase.SaveAssets();
-			}
-			if(GUILayout.Button("Cancel")) {
-				recorder.Close();
-				recorder = null;
+				AssetDatabase.SaveAssets();
 			}
 		}
-		EditorGUI.EndDisabledGroup();
 	}
 	void Update() {
 		if(!EditorApplication.isPlaying || EditorApplication.isPaused)

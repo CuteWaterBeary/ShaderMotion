@@ -20,6 +20,8 @@ Material:
     serializedVersion: 3
     m_TexEnvs: []
     m_Floats:
+    - _AutoHide: 1
     - _Id: 0
+    - _Layer: 0
     - _ShowInDesktop: 1
     m_Colors: []
