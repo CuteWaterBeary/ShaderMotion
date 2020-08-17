@@ -108,8 +108,8 @@ public class FrameLayout {
 	public void AddEncoderVisemeShapes(Mesh mesh=null, int baseIndex=80) {
 		foreach(var vc in visemeTable)
 			for(int i=0; i<3; i++) {
-				var name = "v_"+vc.Key;
-				shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=vc.Value[i]});
+				var name = "v_"+vc.Item1;
+				shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=vc.Item2[i]});
 			}
 	}
 	public void AddDecoderVisemeShapes(Mesh mesh=null, int baseIndex=80) {
@@ -120,29 +120,29 @@ public class FrameLayout {
 
 		foreach(var vc in visemeTable)
 			for(int i=0; i<3; i++)
-				if(vc.Value[i] == 1) {
-					var name = searchVisemeName(shapeNames, vc.Key);
-					shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=vc.Value[i]});
+				if(vc.Item2[i] == 1) {
+					var name = searchVisemeName(shapeNames, vc.Item1);
+					shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=vc.Item2[i]});
 				}
 	}
 	// express visemes as weighted sums of A/CH/O, widely used by CATS
 	// https://github.com/GiveMeAllYourCats/cats-blender-plugin/blob/master/tools/viseme.py#L102
-	static KeyValuePair<string, Vector3>[] visemeTable = new KeyValuePair<string, Vector3>[]{
-		new KeyValuePair<string, Vector3>("sil", Vector3.zero),
-		new KeyValuePair<string, Vector3>("PP", new Vector3(0.0f, 0.0f, 0.0f)),
-		new KeyValuePair<string, Vector3>("FF", new Vector3(0.2f, 0.4f, 0.0f)),
-		new KeyValuePair<string, Vector3>("TH", new Vector3(0.4f, 0.0f, 0.15f)),
-		new KeyValuePair<string, Vector3>("DD", new Vector3(0.3f, 0.7f, 0.0f)),
-		new KeyValuePair<string, Vector3>("kk", new Vector3(0.7f, 0.4f, 0.0f)),
-		new KeyValuePair<string, Vector3>("CH", new Vector3(0.0f, 1.0f, 0.0f)),
-		new KeyValuePair<string, Vector3>("SS", new Vector3(0.0f, 0.8f, 0.0f)),
-		new KeyValuePair<string, Vector3>("nn", new Vector3(0.2f, 0.7f, 0.0f)),
-		new KeyValuePair<string, Vector3>("RR", new Vector3(0.0f, 0.5f, 0.3f)),
-		new KeyValuePair<string, Vector3>("aa", new Vector3(1.0f, 0.0f, 0.0f)),
-		new KeyValuePair<string, Vector3>("E",  new Vector3(0.0f, 0.7f, 0.3f)),
-		new KeyValuePair<string, Vector3>("ih", new Vector3(0.5f, 0.2f, 0.0f)),
-		new KeyValuePair<string, Vector3>("oh", new Vector3(0.2f, 0.0f, 0.8f)),
-		new KeyValuePair<string, Vector3>("ou", new Vector3(0.0f, 0.0f, 1.0f)),
+	static (string, Vector3)[] visemeTable = new (string, Vector3)[]{
+		("sil", Vector3.zero),
+		("PP", new Vector3(0.0f, 0.0f, 0.0f)),
+		("FF", new Vector3(0.2f, 0.4f, 0.0f)),
+		("TH", new Vector3(0.4f, 0.0f, 0.15f)),
+		("DD", new Vector3(0.3f, 0.7f, 0.0f)),
+		("kk", new Vector3(0.7f, 0.4f, 0.0f)),
+		("CH", new Vector3(0.0f, 1.0f, 0.0f)),
+		("SS", new Vector3(0.0f, 0.8f, 0.0f)),
+		("nn", new Vector3(0.2f, 0.7f, 0.0f)),
+		("RR", new Vector3(0.0f, 0.5f, 0.3f)),
+		("aa", new Vector3(1.0f, 0.0f, 0.0f)),
+		("E",  new Vector3(0.0f, 0.7f, 0.3f)),
+		("ih", new Vector3(0.5f, 0.2f, 0.0f)),
+		("oh", new Vector3(0.2f, 0.0f, 0.8f)),
+		("ou", new Vector3(0.0f, 0.0f, 1.0f)),
 	};
 	string searchVisemeName(IEnumerable<string> names, string viseme) {
 		var r = new Regex($@"\bv_{viseme}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);

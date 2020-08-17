@@ -4,53 +4,60 @@ using Array = System.Array;
 using UnityEngine;
 namespace ShaderMotion {
 public class MeshUtil {
-	public static KeyValuePair<int, Matrix4x4>[,] MergeBoneWeightBindposes(BoneWeight[] boneWeights, Matrix4x4[] bindposes, Transform[] bones, Transform[] armature, int quality=4, float threshold=0, int rootBone=0) {
-		var rebinds = new KeyValuePair<int, Matrix4x4>[bones.Length];
+	public static (int, Matrix4x4)[] RetargetBindposes(Matrix4x4[] bindposes, Transform[] bones, Transform[] targetBones, int rootBone) {
+		var targetBindposes = new (int, Matrix4x4)[bones.Length];
 		for(int i=0; i<bones.Length; i++) {
-			var b = bones[i];
-			while(b != null && Array.IndexOf(armature, b) < 0)
-				b = b.parent;
-			if(b == null && i != rootBone)
-				Debug.LogWarning($"bone[\"{bones[i].name}\"] isn't a descendant of {armature[rootBone].name}");
-			var idx = Array.IndexOf(armature, b);
-			if(idx<0)
-				idx = rootBone;
-			rebinds[i] = new KeyValuePair<int, Matrix4x4>(idx,
-				(armature[idx] ? armature[idx].worldToLocalMatrix : Matrix4x4.identity) *
-				(bones[i] ? bones[i].localToWorldMatrix : Matrix4x4.identity) * bindposes[i]);
+			var j = -1;
+			for(var b = bones[i]; b != null && j < 0; b = b.parent)
+				j = Array.IndexOf(targetBones, b);
+			if(j < 0)
+				j = rootBone;
+			targetBindposes[i] = (j, (targetBones[j] ? targetBones[j].worldToLocalMatrix : Matrix4x4.identity) *
+								(bones[i] ? bones[i].localToWorldMatrix : Matrix4x4.identity) * bindposes[i]);
 		}
-
-		var boneWeightBindposes = new KeyValuePair<int, Matrix4x4>[boneWeights.Length, quality];
+		return targetBindposes;
+	}
+	public static (int, Matrix4x4)[,] RetargetWeightBindposes(BoneWeight[] boneWeights, Matrix4x4[] bindposes, Transform[] bones, Transform[] targetBones, int rootBone, int quality=4) {
+		var targetBindposes = RetargetBindposes(bindposes, bones, targetBones, rootBone);
+		var targetWeightBindposes = new (int, Matrix4x4)[boneWeights.Length, quality];
 		for(int v=0; v<boneWeights.Length; v++) {
-			var wmat = new Matrix4x4[armature.Length];
-			var bws = new KeyValuePair<int, float>[4]{
-				new KeyValuePair<int, float>(boneWeights[v].boneIndex0, boneWeights[v].weight0),
-				new KeyValuePair<int, float>(boneWeights[v].boneIndex1, boneWeights[v].weight1),
-				new KeyValuePair<int, float>(boneWeights[v].boneIndex2, boneWeights[v].weight2),
-				new KeyValuePair<int, float>(boneWeights[v].boneIndex3, boneWeights[v].weight3)};
+			var wbs = new Matrix4x4[targetBones.Length];
+			var bws = new (int, float)[4]{
+				(boneWeights[v].boneIndex0, boneWeights[v].weight0),
+				(boneWeights[v].boneIndex1, boneWeights[v].weight1),
+				(boneWeights[v].boneIndex2, boneWeights[v].weight2),
+				(boneWeights[v].boneIndex3, boneWeights[v].weight3)};
 			foreach(var bw in bws)
-				if(bw.Value > threshold) {
-					var bmat = rebinds[bw.Key];
-					for(int k=0; k<16; k++)
-						wmat[bmat.Key][k] += bmat.Value[k]*bw.Value;
-				}
+				for(int k=0; k<16; k++)
+					wbs[targetBindposes[bw.Item1].Item1][k] += targetBindposes[bw.Item1].Item2[k]*bw.Item2;
 
-			var sorted = wmat.Select((m, i) => new KeyValuePair<float, int>(-m[3,3], i))
-							.OrderBy(p => p.Key).Select(p => p.Value).ToArray();
-			var wsum = sorted.Take(quality).Sum(i => wmat[i][3,3]);
-			if(Mathf.Abs(wsum-1) > 1e-5f)
+			var sorted = Enumerable.Range(0, wbs.Length).OrderBy(i => -wbs[i][3,3]).ToArray();
+			var ratio  = sorted.Take(quality).Sum(i => wbs[i][3,3]) / sorted.Sum(i => wbs[i][3,3]);
+			if(Mathf.Abs(ratio-1) > 1e-5f)
 				Debug.LogWarning($@"vertex is skinned with >{quality} bones {{{string.Join(", ",
-					sorted.TakeWhile(i => wmat[i][3,3]>1e-5).Select(i=>$"{armature[i].name}").ToArray())}}}: truncated");
+					sorted.TakeWhile(i => wbs[i][3,3]>1e-5).Select(i=>$"{targetBones[i].name}").ToArray())}}}: truncated");
 
 			for(int i=0; i<quality; i++) {
-				var idx = sorted[i];
+				var b = sorted[i];
 				for(int k=0; k<16; k++)
-					wmat[idx][k] /= wsum; // normalize weights
-				if(wmat[idx][3,3] > 0)
-					boneWeightBindposes[v, i] = new KeyValuePair<int, Matrix4x4>(idx, wmat[idx]);
+					wbs[b][k] /= ratio; // normalize weights
+				if(wbs[b][3,3] > 0)
+					targetWeightBindposes[v, i] = (b, wbs[b]);
 			}
 		}
-		return boneWeightBindposes;
+		return targetWeightBindposes;
+	}
+	public static void FixNormalTangents(Mesh mesh, ref Vector3[] normals, ref Vector4[] tangents) {
+		if(normals.Length < mesh.vertexCount || tangents.Length < mesh.vertexCount) {
+			mesh = Object.Instantiate(mesh);
+			if(normals.Length < mesh.vertexCount)
+				mesh.RecalculateNormals();
+			if(tangents.Length < mesh.vertexCount)
+				mesh.RecalculateTangents();
+			normals  = mesh.normals;
+			tangents = mesh.tangents;
+			Object.DestroyImmediate(mesh);
+		}
 	}
 }
 }

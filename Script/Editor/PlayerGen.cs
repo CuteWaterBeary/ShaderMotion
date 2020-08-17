@@ -41,32 +41,33 @@ public class PlayerGen {
 		tex.SetPixels(colors);
 		tex.Apply(false, false);
 	}
-	public static void CreatePlayerMesh(HumanUtil.Armature arm, FrameLayout layout, Mesh mesh, Mesh srcMesh, Transform[] srcBones, int quality=2, int shapeQuality=4) {
+	public static void CreatePlayerMesh(HumanUtil.Armature arm, FrameLayout layout, Mesh mesh, Mesh srcMesh, Transform[] srcBones, int quality=2, int shapeQuality=4, float motionRadius=2) {
 		var hipsIndex = Array.IndexOf(arm.humanBones, HumanBodyBones.Hips);
 
 		// rescale bone in bindpose because motion armature has no scale
 		var bindposes = arm.bones.Select(b => Matrix4x4.Scale(
 							(arm.root.worldToLocalMatrix * (b??arm.root).localToWorldMatrix).lossyScale)).ToArray();
-		var bwBinds = MeshUtil.MergeBoneWeightBindposes(srcMesh.boneWeights, srcMesh.bindposes, srcBones, arm.bones, quality:quality, rootBone:hipsIndex);
+		var bwBinds = MeshUtil.RetargetWeightBindposes(srcMesh.boneWeights, srcMesh.bindposes, srcBones, arm.bones, hipsIndex, quality:quality);
 		for(int v=0; v<srcMesh.vertexCount; v++)
 			for(int i=0; i<quality; i++) {
-				var bone = bwBinds[v, i].Key;
-				var bind = bwBinds[v, i].Value;
+				var bone = bwBinds[v, i].Item1;
+				var bind = bwBinds[v, i].Item2;
 				if(bind[3,3] != 0)
-					bwBinds[v, i] = new KeyValuePair<int, Matrix4x4>(bone,
-										Matrix4x4.Rotate(Quaternion.Inverse(arm.axes[bone].postQ)) * bindposes[bone] * bind);
+					bwBinds[v, i].Item2 = Matrix4x4.Rotate(Quaternion.Inverse(arm.axes[bone].postQ)) * bindposes[bone] * bind;
 			}
 
+		// skinning
 		var srcVertices = srcMesh.vertices;
 		var srcNormals  = srcMesh.normals;
 		var srcTangents = srcMesh.tangents;
+		MeshUtil.FixNormalTangents(srcMesh, ref srcNormals, ref srcTangents);
 		var srcUVs      = srcMesh.uv;
 		var uvSkin = Array.ConvertAll(new int[quality],
 						x => new[]{new List<Vector4>(), new List<Vector4>(), new List<Vector4>()});
 		for(int v=0; v<srcMesh.vertexCount; v++)
 			for(int i=0; i<quality; i++) {
-				var bone = bwBinds[v, i].Key;
-				var bind = bwBinds[v, i].Value;
+				var bone = bwBinds[v, i].Item1;
+				var bind = bwBinds[v, i].Item2;
 				var weight  = bind[3,3];
 				var vertex  = bind.MultiplyPoint3x4(srcVertices[v]);
 				var normal  = bind.MultiplyVector  (srcNormals[v]);
@@ -77,6 +78,7 @@ public class PlayerGen {
 				uvSkin[i][2].Add(new Vector4(tangent.x, tangent.y, tangent.z, 0));
 			}
 
+		// shape
 		var uvShape = new List<Vector4>[srcMesh.vertexCount];
 		var dverts = new Vector3[srcMesh.vertexCount];
 		var dsums  = new Vector3[srcMesh.vertexCount];
@@ -114,17 +116,14 @@ public class PlayerGen {
 					Debug.LogWarning($"vertex has more than {shapeQuality} shapes: {uvShape[v].Count}");
 			}
 
-		mesh.Clear();
 		mesh.ClearBlendShapes();
-		mesh.subMeshCount = 1;
-		mesh.indexFormat = srcMesh.vertexCount < 65536 ? UnityEngine.Rendering.IndexFormat.UInt16
-													: UnityEngine.Rendering.IndexFormat.UInt32;
-
+		mesh.Clear();
+		mesh.indexFormat = srcMesh.indexFormat;
+		mesh.subMeshCount = srcMesh.subMeshCount;
 
 		var objectToRoot = arm.root.worldToLocalMatrix * arm.bones[hipsIndex].localToWorldMatrix
 							* srcMesh.bindposes[Array.IndexOf(srcBones, arm.bones[hipsIndex])];
 		mesh.vertices = Array.ConvertAll(srcMesh.vertices, v => objectToRoot.MultiplyPoint3x4(v)); // rest pose
-		mesh.triangles = srcMesh.triangles;
 		for(int i=0; i<quality; i++)
 			for(int j=0; j<2; j++)
 				mesh.SetUVs(i*2+j, uvSkin[i][j]);
@@ -132,11 +131,19 @@ public class PlayerGen {
 			mesh.SetUVs(4+i, uvShape.Select(x => x != null && i<x.Count ? x[i] : Vector4.zero).ToList());
 		mesh.SetNormals(uvSkin[0][2].ConvertAll(x => (Vector3)x));
 		mesh.SetTangents(uvSkin[1][2]);
+		for(int i=0; i<srcMesh.subMeshCount; i++)
+			mesh.SetIndices(srcMesh.GetIndices(i, false), srcMesh.GetTopology(i), i, false, (int)srcMesh.GetBaseVertex(i));
 
-		var bounds = mesh.bounds;
-		bounds.min -= new Vector3(1,0,1) * arm.scale;
-		bounds.max += new Vector3(1,0,1) * arm.scale;
-		mesh.bounds = bounds;
+		var srcBounds = srcMesh.bounds;
+		var center = objectToRoot.MultiplyPoint3x4(srcBounds.center);
+		var size = Vector3.Max(objectToRoot.MultiplyVector(Vector3.Scale(srcBounds.size, Vector3.left)),
+								objectToRoot.MultiplyVector(Vector3.Scale(srcBounds.size, Vector3.right)))
+				+ Vector3.Max(objectToRoot.MultiplyVector(Vector3.Scale(srcBounds.size, Vector3.down)),
+								objectToRoot.MultiplyVector(Vector3.Scale(srcBounds.size, Vector3.up)))
+				+ Vector3.Max(objectToRoot.MultiplyVector(Vector3.Scale(srcBounds.size, Vector3.back)),
+								objectToRoot.MultiplyVector(Vector3.Scale(srcBounds.size, Vector3.forward)));
+		var sizeXZ = Mathf.Max(size.x, size.z) + 2*motionRadius*arm.scale;
+		mesh.bounds = new Bounds(center, new Vector3(sizeXZ, size.y, sizeXZ));
 	}
 	public static MeshRenderer CreatePlayer(string name, Transform parent, Animator animator, SkinnedMeshRenderer smr, string assetPath) {
 		var player = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
@@ -146,19 +153,30 @@ public class PlayerGen {
 				System.IO.Directory.CreateDirectory(Path.GetDirectoryName(assetPath));
 
 			var mesh = new Mesh();
-			var mat = Object.Instantiate(Resources.Load<Material>("MotionPlayer"));
 			var tex = new Texture2D(1,1);
-			mat.mainTexture = smr.sharedMaterial.mainTexture;
-			mat.SetTexture("_Armature", tex);
-			AssetDatabase.CreateAsset(tex,  assetPath + "_armature.asset");
-			AssetDatabase.CreateAsset(mat,  assetPath + "_player.mat");
 			AssetDatabase.CreateAsset(mesh, assetPath + "_player.asset");
+			AssetDatabase.CreateAsset(tex,  assetPath + "_armature.asset");
+
+			var mats = new Material[smr.sharedMaterials.Length];
+			for(int i=0; i<mats.Length; i++) {
+				mats[i] = Object.Instantiate(Resources.Load<Material>("MotionPlayer"));
+				mats[i].mainTexture = smr.sharedMaterials[i].mainTexture;
+				mats[i].SetTexture("_Armature", tex);
+				AssetDatabase.CreateAsset(mats[i],  assetPath + (i == 0 ? "_player.mat" : $"_player{i}.mat"));
+			}
 
 			var go = new GameObject(name, typeof(MeshRenderer), typeof(MeshFilter));
 			player = go.GetComponent<MeshRenderer>();
-			player.GetComponent<MeshFilter>().sharedMesh = mesh;
-			player.sharedMaterial = mat;
 			player.transform.SetParent(parent, false);
+			player.GetComponent<MeshFilter>().sharedMesh = mesh;
+			player.sharedMaterials = mats;
+			// copy renderer settings
+			player.lightProbeUsage				= smr.lightProbeUsage;
+			player.reflectionProbeUsage			= smr.reflectionProbeUsage;
+			player.shadowCastingMode			= smr.shadowCastingMode;
+			player.receiveShadows 				= smr.receiveShadows;
+			player.motionVectorGenerationMode	= smr.motionVectorGenerationMode;
+			player.allowOcclusionWhenDynamic	= smr.allowOcclusionWhenDynamic;
 		}
 		{
 			var tex = (Texture2D)player.sharedMaterial.GetTexture("_Armature");

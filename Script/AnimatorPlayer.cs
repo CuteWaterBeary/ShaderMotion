@@ -23,13 +23,27 @@ public class GPUReader {
 }
 public class AnimatorPlayer : MonoBehaviour  {
 	public RenderTexture motionBuffer;
-	public Animator animator = null;
-	public SkinnedMeshRenderer shapeRenderer = null;
+	public Animator animator;
+	public SkinnedMeshRenderer shapeRenderer;
 	public bool applyHumanPose = false;
 	
 	GPUReader gpuReader = new GPUReader();
 	MotionPlayer player;
 
+	void OnEnable() {
+		// unbox null
+		var animator = this.animator?this.animator:null; 
+		var shapeRenderer = this.shapeRenderer?this.shapeRenderer:null;
+
+		var armature = new HumanUtil.Armature(animator??GetComponent<Animator>(), FrameLayout.defaultHumanBones);
+		var layout = new FrameLayout(armature, FrameLayout.defaultOverrides);
+		layout.AddDecoderVisemeShapes(shapeRenderer?.sharedMesh);
+		player = new MotionPlayer(armature, layout);
+		player.shapeRenderer = shapeRenderer;
+	}
+	void OnDisable() {
+		player = null;
+	}
 	void Update() {
 		var request = gpuReader.Request(motionBuffer);
 		if(request != null && !request.Value.hasError) {
@@ -40,17 +54,6 @@ public class AnimatorPlayer : MonoBehaviour  {
 				player.ApplyTransform();
 			player.ApplyBlendShape();
 		}
-	}
-	void Start() {
-		if(animator == null)
-			animator = GetComponent<Animator>();
-		if(shapeRenderer == null)
-			shapeRenderer = null;
-		var armature = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
-		var layout = new FrameLayout(armature, FrameLayout.defaultOverrides);
-		layout.AddDecoderVisemeShapes(shapeRenderer?.sharedMesh);
-		player = new MotionPlayer(armature, layout);
-		player.shapeRenderer = shapeRenderer;
 	}
 }
 }
