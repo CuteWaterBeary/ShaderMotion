@@ -5,31 +5,25 @@ using Path = System.IO.Path;
 using UnityEngine;
 using UnityEditor;
 using GameObjectRecorder = UnityEditor.Animations.GameObjectRecorder;
+using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
 [System.Serializable] // this is serializable to survive code reload
 public class AnimRecorder {
-	static string[] axes = new[]{"x", "y", "z", "w"};
-	static int[,] boneMuscles = new int[HumanTrait.BoneCount, 3];
-	static AnimRecorder() {
-		for(int i=0; i<HumanTrait.BoneCount; i++)
-			for(int j=0; j<3; j++)
-				boneMuscles[i,j] = HumanTrait.MuscleFromBone(i, j);
-	}
-
 	// serializable
 	Animator animator;
 	Transform hips;
 	GameObjectRecorder recorder;
 	Transform[] proxies;
 
+	// used to test if it's deserialized from null or not
 	public static implicit operator bool(AnimRecorder r) {
 		return !object.ReferenceEquals(r, null) && r.recorder;
 	}
 	public AnimRecorder(Animator animator) {
-		this.animator    = animator;
-		this.hips        = animator.GetBoneTransform(HumanBodyBones.Hips);
-		this.recorder    = new GameObjectRecorder(animator.gameObject);
+		this.animator = animator;
+		this.hips     = animator.GetBoneTransform(HumanBodyBones.Hips);
+		this.recorder = new GameObjectRecorder(animator.gameObject);
 		this.proxies  = new Transform[HumanTrait.BoneCount];
 
 		var hideFlags = HideFlags.DontSaveInEditor; // | HideFlags.HideInHierarchy
@@ -47,9 +41,12 @@ public class AnimRecorder {
 			recorder.ResetRecording();
 			destroy(recorder);
 		}
-		if(proxies[0])
+		if(proxies != null && proxies[0])
 			destroy(proxies[0].parent.gameObject);
+		animator = null;
 		recorder = null;
+		hips = null;
+		proxies = null;
 	}
 	void bindProxies() {
 		{
@@ -61,10 +58,10 @@ public class AnimRecorder {
 		}
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
 			if(!animator.GetBoneTransform((HumanBodyBones)i))
-				continue; // skip recording missing bones
+				continue; // don't record missing bones
 			var path = AnimationUtility.CalculateTransformPath(proxies[i], animator.transform);
 			for(int j=0; j<3; j++)
-				if(boneMuscles[i, j] >= 0)
+				if(MuscleFromBone[i, j] >= 0)
 					recorder.Bind(EditorCurveBinding.FloatCurve(path, typeof(Transform), "m_LocalPosition."+axes[j]));
 		}
 	}
@@ -81,8 +78,8 @@ public class AnimRecorder {
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
 			var path = AnimationUtility.CalculateTransformPath(proxies[i], animator.transform);
 			for(int j=0; j<3; j++)
-				if(boneMuscles[i, j] >= 0)
-					muscleCurves[boneMuscles[i, j]] = AnimationUtility.GetEditorCurve(clip,
+				if(MuscleFromBone[i, j] >= 0)
+					muscleCurves[MuscleFromBone[i, j]] = AnimationUtility.GetEditorCurve(clip,
 						EditorCurveBinding.FloatCurve(path, typeof(Transform), "m_LocalPosition."+axes[j]));
 		}
 	}
@@ -102,7 +99,7 @@ public class AnimRecorder {
 		for(int i=0; i<4; i++)
 			clip.SetCurve("", typeof(Animator), "RootQ."+axes[i], rootCurves[3+i]);
 		for(int i=0; i<HumanTrait.MuscleCount; i++)
-			clip.SetCurve("", typeof(Animator), HumanTrait.MuscleName[i], muscleCurves[i]);
+			clip.SetCurve("", typeof(Animator), AnimatorMuscleName[i], muscleCurves[i]);
 	}
 
 	// non serializable
@@ -123,8 +120,8 @@ public class AnimRecorder {
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
 			var pos = Vector3.zero;
 			for(int j=0; j<3; j++)
-				if(boneMuscles[i, j] >= 0)
-					pos[j] = humanPose.muscles[boneMuscles[i, j]];
+				if(MuscleFromBone[i, j] >= 0)
+					pos[j] = humanPose.muscles[MuscleFromBone[i, j]];
 			proxies[i].localPosition = pos;
 		}
 		recorder.TakeSnapshot(deltaTime);
@@ -143,11 +140,12 @@ public class AnimRecorder {
 		getProxyCurves(clip, rootCurves, muscleCurves);
 		clearProxyCurves(clip);
 
-		// set BakeIntoPose = true, BasedUpon = origin
 		var so = new SerializedObject(clip);
+		// don't change root motion (BakeIntoPose = true)
 		so.FindProperty("m_AnimationClipSettings.m_LoopBlendOrientation").boolValue = true;
 		so.FindProperty("m_AnimationClipSettings.m_LoopBlendPositionY").boolValue = true;
 		so.FindProperty("m_AnimationClipSettings.m_LoopBlendPositionXZ").boolValue = true;
+		// set coordinate system to origin (BasedUpon = origin)
 		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalOrientation").boolValue = true;
 		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalPositionY").boolValue = true;
 		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalPositionXZ").boolValue = true;
@@ -155,8 +153,25 @@ public class AnimRecorder {
 
 		setHumanCurves(clip, rootCurves, muscleCurves);
 	}
+
+	static readonly int[,]   MuscleFromBone = new int[HumanTrait.BoneCount, 3];
+	static readonly string[] AnimatorMuscleName = new string[HumanTrait.MuscleCount];
+	static readonly string[] axes = new[]{"x", "y", "z", "w"};
+	static AnimRecorder() {
+		for(int i=0; i<HumanTrait.BoneCount; i++)
+			for(int j=0; j<3; j++)
+				MuscleFromBone[i,j] = HumanTrait.MuscleFromBone(i, j);
+		// fix HumanTrait.MuscleName to match Animator's propertyName
+		for(int i=0; i<HumanTrait.MuscleCount; i++) {
+			var name = HumanTrait.MuscleName[i];
+			name = Regex.Replace(name, @"(Left|Right) (\w+) (\w+) (Stretched)",
+										"$1Hand.$2.$3 $4", RegexOptions.IgnoreCase);
+			name = Regex.Replace(name, @"(Left|Right) (\w+) (Spread)",
+										"$1Hand.$2.$3", RegexOptions.IgnoreCase);
+			AnimatorMuscleName[i] = name;
+		}
+	}
 }
-// a simple UI for AnimRecorder
 class AnimRecorderWindow : EditorWindow {
 	[MenuItem("CONTEXT/Animator/RecordAnimation")]
 	static void RecordAnimation(MenuCommand command) {
