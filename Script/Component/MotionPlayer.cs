@@ -2,33 +2,16 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Unity.Collections;
-using AsyncGPUReadback = UnityEngine.Rendering.AsyncGPUReadback;
-using AsyncGPUReadbackRequest = UnityEngine.Rendering.AsyncGPUReadbackRequest;
 
 namespace ShaderMotion {
-public class GPUReader {
-	Queue<AsyncGPUReadbackRequest> requests = new Queue<AsyncGPUReadbackRequest>();
-	public AsyncGPUReadbackRequest? Request(Texture tex) {
-		AsyncGPUReadbackRequest? request = null;
-		while(requests.Count > 0) {
-			var r = requests.Peek();
-			if(!r.done)
-				break;
-			request = requests.Dequeue();
-		}
-		if(requests.Count < 2)
-			requests.Enqueue(AsyncGPUReadback.Request(tex));
-		return request;
-	}
-}
-public class AnimatorPlayer : MonoBehaviour  {
+public class MotionPlayer : MonoBehaviour  {
 	public RenderTexture motionBuffer;
 	public Animator animator;
 	public SkinnedMeshRenderer shapeRenderer;
 	public bool applyHumanPose = false;
 	
 	GPUReader gpuReader = new GPUReader();
-	MotionPlayer player;
+	BonePlayer player;
 
 	void OnEnable() {
 		// unbox null
@@ -38,7 +21,7 @@ public class AnimatorPlayer : MonoBehaviour  {
 		var armature = new HumanUtil.Armature(animator??GetComponent<Animator>(), FrameLayout.defaultHumanBones);
 		var layout = new FrameLayout(armature, FrameLayout.defaultOverrides);
 		layout.AddDecoderVisemeShapes(shapeRenderer?.sharedMesh);
-		player = new MotionPlayer(armature, layout);
+		player = new BonePlayer(armature, layout);
 		player.shapeRenderer = shapeRenderer;
 	}
 	void OnDisable() {

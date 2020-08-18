@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: MotionRecorder
+  m_Name: MeshRecorder
   m_Shader: {fileID: 4800000, guid: 9687b2da23383b847b1f5a464badac15, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -21,7 +21,5 @@ Material:
     m_TexEnvs: []
     m_Floats:
     - _AutoHide: 1
-    - _Id: 0
     - _Layer: 0
-    - _ShowInDesktop: 1
     m_Colors: []

@@ -1,4 +1,4 @@
-Shader "Motion/Player" {
+Shader "Motion/MeshPlayer" {
 Properties {
 	[Header(Texture)]
 	[NoScaleOffset]
@@ -45,20 +45,20 @@ UNITY_INSTANCING_BUFFER_END(Props)
 	#define _Motion_Encoded _Motion
 #endif
 
-#include "MotionPlayer.hlsl"
+#include "MeshPlayer.hlsl"
 #include "Frag.hlsl"
 
 void vert(VertInputPlayer i, out FragInput o) {
 	UNITY_SETUP_INSTANCE_ID(i);
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-	float3 vertex, normal;
-	SkinVertex(i, vertex, normal, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer));
+	VertInputSkinned I;
+	SkinVertex(i, I, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer));
 	
-	o.vertex = mul(unity_ObjectToWorld, float4(vertex, 1));
-	o.normal = mul(unity_ObjectToWorld, float4(normal, 0));
+	o.vertex = mul(unity_ObjectToWorld, float4(I.vertex, 1));
+	o.normal = mul(unity_ObjectToWorld, float4(I.normal, 0));
 	o.pos = UnityWorldToClipPos(o.vertex);
-	o.tex = i.GetUV();
+	o.tex = I.texcoord;
 	o.color = _Color;
 }
 ENDCG

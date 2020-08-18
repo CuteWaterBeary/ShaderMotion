@@ -1,4 +1,4 @@
-Shader "Motion/Recorder" {
+Shader "Motion/MeshRecorder" {
 Properties {
 	[ToggleUI] _AutoHide ("AutoHide", Float) = 1
 	_Layer ("Layer", Float) = 0

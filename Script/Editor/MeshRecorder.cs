@@ -7,8 +7,8 @@ using UnityEngine;
 using UnityEditor;
 
 namespace ShaderMotion {
-public class RecorderGen {
-	public static void CreateRecorderMesh(HumanUtil.Armature arm, FrameLayout layout, Mesh mesh) {
+public class MeshRecorder {
+	public static void CreateRecorderMesh(Mesh mesh, HumanUtil.Armature arm, FrameLayout layout) {
 		var bindposes = arm.bones.Select(b => Matrix4x4.Scale( // unscale bone in bindpose
 							(arm.root.worldToLocalMatrix * (b??arm.root).localToWorldMatrix).lossyScale).inverse).ToArray();
 		var bounds = new Bounds();
@@ -111,7 +111,7 @@ public class RecorderGen {
 			recorder = go.GetComponent<SkinnedMeshRenderer>();
 			recorder.rootBone = recorder.transform;
 			recorder.sharedMesh = mesh;
-			recorder.sharedMaterial = Resources.Load<Material>("MotionRecorder");
+			recorder.sharedMaterial = Resources.Load<Material>("MeshRecorder");
 			recorder.transform.SetParent(parent, false);
 		}
 
@@ -119,7 +119,7 @@ public class RecorderGen {
 			var armature = new HumanUtil.Armature(animator, FrameLayout.defaultHumanBones);
 			var layout = new FrameLayout(armature, FrameLayout.defaultOverrides);
 			layout.AddEncoderVisemeShapes();
-			CreateRecorderMesh(armature, layout, recorder.sharedMesh);
+			CreateRecorderMesh(recorder.sharedMesh, armature, layout);
 			recorder.bones = armature.bones;
 			AssetDatabase.SaveAssets();
 
@@ -133,12 +133,14 @@ public class RecorderGen {
 		return Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)),
 							"auto", animator.name);
 	}
-	[MenuItem("CONTEXT/Animator/CreateShaderRecorder")]
+}
+class MeshRecorderEditor {
+	[MenuItem("CONTEXT/Animator/CreateMeshRecorder")]
 	static void CreateRecorder(MenuCommand command) {
 		var animator = (Animator)command.context;
-		var assetPath = GenerateAssetPath(animator);
+		var assetPath = MeshRecorder.GenerateAssetPath(animator);
 
-		var recorder = CreateRecorder("Recorder", animator.transform, animator, assetPath);
+		var recorder = MeshRecorder.CreateRecorder("Recorder", animator.transform, animator, assetPath);
 		Selection.activeGameObject = recorder.gameObject;
 	}
 }

@@ -7,8 +7,8 @@ using UnityEngine;
 using UnityEditor;
 
 namespace ShaderMotion {
-public class PlayerGen {
-	public static void CreatePlayerTex(HumanUtil.Armature arm, FrameLayout layout, Texture2D tex) {
+public class MeshPlayer {
+	public static void CreatePlayerTex(Texture2D tex, HumanUtil.Armature arm, FrameLayout layout) {
 		var boneData = new int[arm.bones.Length, 2];
 		for(int i=0; i<arm.bones.Length; i++) {
 			var start = layout.baseIndices[i] - (layout.channels[i][0] - (layout.channels[i][0] < 3 ? 0 : 3));
@@ -41,7 +41,7 @@ public class PlayerGen {
 		tex.SetPixels(colors);
 		tex.Apply(false, false);
 	}
-	public static void CreatePlayerMesh(HumanUtil.Armature arm, FrameLayout layout, Mesh mesh, Mesh srcMesh, Transform[] srcBones, int quality=2, int shapeQuality=4, float motionRadius=2) {
+	public static void CreatePlayerMesh(Mesh mesh, HumanUtil.Armature arm, FrameLayout layout, Mesh srcMesh, Transform[] srcBones, int quality=2, int shapeQuality=4, float motionRadius=2) {
 		var hipsIndex = Array.IndexOf(arm.humanBones, HumanBodyBones.Hips);
 
 		// rescale bone in bindpose because motion armature has no scale
@@ -75,7 +75,7 @@ public class PlayerGen {
 
 				uvSkin[i][0].Add(new Vector4(vertex.x,  vertex.y,  vertex.z, weight/2 + bone));
 				uvSkin[i][1].Add(new Vector4(normal.x,  normal.y,  normal.z, srcUVs[v][i]));
-				uvSkin[i][2].Add(new Vector4(tangent.x, tangent.y, tangent.z, 0));
+				uvSkin[i][2].Add(new Vector4(tangent.x, tangent.y, tangent.z, srcTangents[v].w));
 			}
 
 		// shape
@@ -99,12 +99,12 @@ public class PlayerGen {
 				if(dsums[v] != Vector3.zero) {
 					var normal = srcNormals[v];
 					var tangent = (Vector3)srcTangents[v];
-					var bitangent = Vector3.Cross(normal, tangent);
+					var bitangent = Vector3.Cross(normal.normalized, tangent);
 					var m = Matrix4x4.identity;
 					m.SetColumn(0, normal);
 					m.SetColumn(1, tangent);
 					m.SetColumn(2, bitangent);
-					var dlocal = m.inverse.MultiplyPoint3x4(dsums[v]);
+					var dlocal = m.inverse.MultiplyVector(dsums[v]);
 					uvShape[v] = uvShape[v] ?? new List<Vector4>();
 					uvShape[v].Add((Vector4)dlocal + new Vector4(0,0,0,slot));
 				}
@@ -159,7 +159,7 @@ public class PlayerGen {
 
 			var mats = new Material[smr.sharedMaterials.Length];
 			for(int i=0; i<mats.Length; i++) {
-				mats[i] = Object.Instantiate(Resources.Load<Material>("MotionPlayer"));
+				mats[i] = Object.Instantiate(Resources.Load<Material>("MeshPlayer"));
 				mats[i].mainTexture = smr.sharedMaterials[i].mainTexture;
 				mats[i].SetTexture("_Armature", tex);
 				AssetDatabase.CreateAsset(mats[i],  assetPath + (i == 0 ? "_player.mat" : $"_player{i}.mat"));
@@ -186,19 +186,21 @@ public class PlayerGen {
 			var layout = new FrameLayout(arm, FrameLayout.defaultOverrides);
 			layout.AddDecoderVisemeShapes(srcMesh);
 
-			CreatePlayerTex(arm, layout, tex);
-			CreatePlayerMesh(arm, layout, dstMesh, srcMesh, smr.bones);
+			CreatePlayerTex(tex, arm, layout);
+			CreatePlayerMesh(dstMesh, arm, layout, srcMesh, smr.bones);
 			AssetDatabase.SaveAssets();
 		}
 		return player;
 	}
-	[MenuItem("CONTEXT/SkinnedMeshRenderer/CreateShaderPlayer")]
+}
+class MeshPlayerEditor {
+	[MenuItem("CONTEXT/SkinnedMeshRenderer/CreateMeshPlayer")]
 	static void CreatePlayer(MenuCommand command) {
 		var smr = (SkinnedMeshRenderer)command.context;
 		var animator = smr.gameObject.GetComponentInParent<Animator>();
-		var assetPath = RecorderGen.GenerateAssetPath(animator);
+		var assetPath = MeshRecorder.GenerateAssetPath(animator);
 
-		var player = CreatePlayer($"{animator.name}.Player", animator.transform.parent,
+		var player = MeshPlayer.CreatePlayer($"{animator.name}.Player", animator.transform.parent,
 											animator, smr, assetPath);
 		Selection.activeGameObject = player.gameObject;
 	}

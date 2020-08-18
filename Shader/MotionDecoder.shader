@@ -1,4 +1,4 @@
-Shader "Motion/Decoder" {
+Shader "Motion/MotionDecoder" {
 Properties {
 	[NoScaleOffset] _Motion ("Motion", 2D) = "black" {}
 }

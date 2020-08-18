@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: MotionPlayer
+  m_Name: MeshPlayer
   m_Shader: {fileID: 4800000, guid: 00a71ddf3b7dffc489c7eab664308baa, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -32,7 +32,8 @@ Material:
     - _Cull: 2
     - _Cutoff: 0
     - _Decoded: 0
-    - _Id: 0
+    - _Layer: 0
     - _NearClip: 0
+    - _RotationTolerance: 0.1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}

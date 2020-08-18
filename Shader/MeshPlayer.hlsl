@@ -10,13 +10,13 @@ struct VertInputPlayer {
 	float4 uvSkin[QUALITY][2] : TEXCOORD0;
 	float4 uvShape[4] : TEXCOORD4;
 	float3 normal  : NORMAL;
-	float3 tangent : TANGENT;
+	float4 tangent : TANGENT;
 	UNITY_VERTEX_INPUT_INSTANCE_ID
 	void GetSkin(uint idx, out uint bone, out float4 vertex, out float3 normal, out float3 tangent) {
 		bone = floor(uvSkin[idx][0].w);
 		vertex = float4(uvSkin[idx][0].xyz, frac(uvSkin[idx][0].w)*2);
 		normal = uvSkin[idx][1].xyz;
-		tangent = idx == 0 ? this.normal : this.tangent;
+		tangent = idx == 0 ? this.normal : this.tangent.xyz;
 	}
 	void GetShape(uint idx, out uint shape, out float3 dvertex) {
 		shape = uvShape[idx].w;
@@ -25,6 +25,12 @@ struct VertInputPlayer {
 	float2 GetUV() {
 		return float2(uvSkin[0][1].w, uvSkin[1][1].w);
 	}
+};
+struct VertInputSkinned {
+	float3 vertex  : POSITION;
+	float3 normal  : NORMAL;
+	float4 tangent : TANGENT;
+	float2 texcoord : TEXCOORD0;
 };
 
 float sampleSigned(uint idx0, uint idx1, float4 st, bool highRange) {
@@ -49,12 +55,11 @@ float sampleSigned(uint idx, float4 st) {
 float3 sampleSigned3(uint idx, float4 st) {
 	return sampleSigned3(idx, idx, st, false);
 }
-void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal, float layer, bool highRange=true) {
+void SkinVertex(VertInputPlayer i, out VertInputSkinned o, float layer, bool highRange=true) {
 	float4 st = layer == 0 ? float4(1,1,0,0) : float4(-1,1,1,0);
 	float NaN = sqrt(-unity_ObjectToWorld._44);
 
-	vertex = normal = 0;
-	float3 tangent = 0;
+	float3 vertex = 0, normal = 0, tangent = 0;
 	for(uint J=0; J<QUALITY; J++) {
 		uint bone; float4 vtx; float3 nml, tng;
 		i.GetSkin(J, bone, vtx, nml, tng);
@@ -109,7 +114,7 @@ void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal, float l
 
 	{
 		float4 wts = float4(0.2, 0, 0.8, 0);
-		float3x3 mat = transpose(float3x3(normal, tangent, cross(normal, tangent)));
+		float3x3 mat = transpose(float3x3(normal, tangent, cross(normalize(normal), tangent)));
 		UNITY_LOOP
 		for(uint J=0; J<4; J++) {
 			uint shape;
@@ -121,4 +126,10 @@ void SkinVertex(VertInputPlayer i, out float3 vertex, out float3 normal, float l
 			}
 		}
 	}
+
+	o.vertex = vertex;
+	o.normal = normal;
+	o.tangent.xyz = tangent;
+	o.tangent.w = i.tangent.w;
+	o.texcoord = i.GetUV();
 }

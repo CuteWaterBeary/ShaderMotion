@@ -6,23 +6,23 @@ using Unity.Collections;
 using AsyncGPUReadbackRequest = UnityEngine.Rendering.AsyncGPUReadbackRequest;
 
 namespace ShaderMotion {
-public class MotionPlayer {
+public class BonePlayer {
+	HumanUtil.Armature armature;
+	FrameLayout layout;
+	public SkinnedMeshRenderer shapeRenderer = null;
+
+	// decodec motion
 	public Quaternion rootQ;
 	public Vector3 rootT;
 	public Vector3[] muscles;
-	public SkinnedMeshRenderer shapeRenderer = null;
+	public Dictionary<string, float> shapes;
 
-	HumanUtil.Armature armature;
-	FrameLayout layout;
-	HumanPoseHandler poseHandler;
-	HumanPose pose;
-	public MotionPlayer(HumanUtil.Armature armature, FrameLayout layout) {
+	public BonePlayer(HumanUtil.Armature armature, FrameLayout layout) {
 		this.armature = armature;
 		this.layout = layout;
-		poseHandler = new HumanPoseHandler(armature.root.GetComponent<Animator>().avatar, armature.root);
-		poseHandler.GetHumanPose(ref pose);
 
 		muscles = new Vector3[armature.bones.Length];
+		shapes = new Dictionary<string, float>();
 	}
 
 	static int width = 40, height = 45;
@@ -60,6 +60,13 @@ public class MotionPlayer {
 			}
 		}
 		rootQ = Quaternion.LookRotation(rootZ, rootY);
+
+		shapes.Clear();
+		foreach(var si in layout.shapeIndices) {
+			float w = 0;
+			shapes.TryGetValue(si.shape, out w);
+			shapes[si.shape] = w + SampleSlot(si.index) * si.weight;
+		}
 	}
 	public void ApplyTransform() {
 		for(int i=0; i<armature.bones.Length; i++)
@@ -74,7 +81,13 @@ public class MotionPlayer {
 												* Quaternion.Inverse(axes.postQ);
 			}
 	}
+	HumanPoseHandler poseHandler;
+	HumanPose pose;
 	public void ApplyHumanPose() {
+		if(poseHandler == null) {
+			poseHandler = new HumanPoseHandler(armature.root.GetComponent<Animator>().avatar, armature.root);
+			poseHandler.GetHumanPose(ref pose);
+		}
 		pose.bodyPosition = rootT;
 		pose.bodyRotation = rootQ;
 		Array.Clear(pose.muscles, 0, pose.muscles.Length);
@@ -88,32 +101,18 @@ public class MotionPlayer {
 			pose.muscles[i] /= pose.muscles[i] >= 0 ? muscleLimits[i,1] : -muscleLimits[i,0];
 		poseHandler.SetHumanPose(ref pose);
 	}
-
-	float[] shapeWeights = null;
 	public void ApplyBlendShape() {
-		var mesh = shapeRenderer?.sharedMesh;
-		if(mesh != null && layout.shapeIndices != null && layout.shapeIndices.Count != 0) {
-			Array.Resize(ref shapeWeights, mesh.blendShapeCount);
-			for(int shape=0; shape<shapeWeights.Length; shape++)
-				shapeWeights[shape] = float.NaN;
-			foreach(var si in layout.shapeIndices) {
-				var shape = mesh.GetBlendShapeIndex(si.shape);
-				if(shape >= 0) {
-					var v = SampleSlot(si.index);
-					if(float.IsNaN(shapeWeights[shape]))
-						shapeWeights[shape] = 0;
-					shapeWeights[shape] += v * si.weight;
-				}
+		if(shapeRenderer) {
+			var mesh = shapeRenderer.sharedMesh;
+			foreach(var kv in shapes) {
+				var shape = mesh.GetBlendShapeIndex(kv.Key);
+				var frame = mesh.GetBlendShapeFrameCount(shape)-1;
+				var weight = mesh.GetBlendShapeFrameWeight(shape, frame);
+				shapeRenderer.SetBlendShapeWeight(shape, kv.Value * weight);
 			}
-			for(int shape=0; shape<shapeWeights.Length; shape++)
-				if(!float.IsNaN(shapeWeights[shape])) {
-					var frame = mesh.GetBlendShapeFrameCount(shape)-1;
-					var weight = mesh.GetBlendShapeFrameWeight(shape, frame);
-					shapeRenderer.SetBlendShapeWeight(shape, shapeWeights[shape] * weight);
-				}
 		}
 	}
-	Quaternion muscleToRotation(Vector3 muscle) {
+	static Quaternion muscleToRotation(Vector3 muscle) {
 		var muscleYZ = new Vector3(0, muscle.y, muscle.z);
 		return Quaternion.AngleAxis(muscleYZ.magnitude, muscleYZ.normalized)
 				* Quaternion.AngleAxis(muscle.x, new Vector3(1,0,0));
@@ -121,7 +120,7 @@ public class MotionPlayer {
 
 	static int[,] boneMuscles;
 	static float[,] muscleLimits;
-	static MotionPlayer() {
+	static BonePlayer() {
 		boneMuscles = new int[HumanTrait.BoneCount, 3];
 		for(int i=0; i<HumanTrait.BoneCount; i++) 
 			for(int j=0; j<3; j++) {

@@ -7,11 +7,11 @@ using UnityEditor;
 using GameObjectRecorder = UnityEditor.Animations.GameObjectRecorder;
 
 namespace ShaderMotion {
-[System.Serializable]
-public class HumanAnimatorRecorder {
+[System.Serializable] // this is serializable to survive code reload
+public class AnimRecorder {
 	static string[] axes = new[]{"x", "y", "z", "w"};
 	static int[,] boneMuscles = new int[HumanTrait.BoneCount, 3];
-	static HumanAnimatorRecorder() {
+	static AnimRecorder() {
 		for(int i=0; i<HumanTrait.BoneCount; i++)
 			for(int j=0; j<3; j++)
 				boneMuscles[i,j] = HumanTrait.MuscleFromBone(i, j);
@@ -23,10 +23,10 @@ public class HumanAnimatorRecorder {
 	GameObjectRecorder recorder;
 	Transform[] proxies;
 
-	public static implicit operator bool(HumanAnimatorRecorder r) {
+	public static implicit operator bool(AnimRecorder r) {
 		return !object.ReferenceEquals(r, null) && r.recorder;
 	}
-	public HumanAnimatorRecorder(Animator animator) {
+	public AnimRecorder(Animator animator) {
 		this.animator    = animator;
 		this.hips        = animator.GetBoneTransform(HumanBodyBones.Hips);
 		this.recorder    = new GameObjectRecorder(animator.gameObject);
@@ -156,17 +156,17 @@ public class HumanAnimatorRecorder {
 		setHumanCurves(clip, rootCurves, muscleCurves);
 	}
 }
-// a simple UI for HumanAnimatorRecorder
-class HumanAnimatorRecorderEW : EditorWindow {
+// a simple UI for AnimRecorder
+class AnimRecorderWindow : EditorWindow {
 	[MenuItem("CONTEXT/Animator/RecordAnimation")]
 	static void RecordAnimation(MenuCommand command) {
 		var animator = (Animator)command.context;
-		var window = EditorWindow.GetWindow<HumanAnimatorRecorderEW>("RecordAnimation");
+		var window = EditorWindow.GetWindow<AnimRecorderWindow>("RecordAnimation");
 		window.Show();
 		window.animator = animator;
 	}
 
-	HumanAnimatorRecorder recorder = null;
+	AnimRecorder recorder = null;
 	Animator animator = null;
 	AnimationClip clip = null;
 	int frameRate = 30;
@@ -177,7 +177,7 @@ class HumanAnimatorRecorderEW : EditorWindow {
 
 		if(recorder == null) {
 			if(GUILayout.Button("Start")) {
-				recorder = new HumanAnimatorRecorder(animator);
+				recorder = new AnimRecorder(animator);
 			}
 		} else if(!EditorApplication.isPlaying) {
 			recorder.Dispose();
