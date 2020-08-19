@@ -34,8 +34,8 @@ public class MeshUtil {
 			var sorted = Enumerable.Range(0, wbs.Length).OrderBy(i => -wbs[i][3,3]).ToArray();
 			var ratio  = sorted.Take(quality).Sum(i => wbs[i][3,3]) / sorted.Sum(i => wbs[i][3,3]);
 			if(Mathf.Abs(ratio-1) > 1e-5f)
-				Debug.LogWarning($@"vertex is skinned with >{quality} bones {{{string.Join(", ",
-					sorted.TakeWhile(i => wbs[i][3,3]>1e-5).Select(i=>$"{targetBones[i].name}").ToArray())}}}: truncated");
+				Debug.LogWarning($@"vertex is skinned with >{quality} bones: skip {string.Join(", ",
+					sorted.Skip(quality).TakeWhile(i => wbs[i][3,3]>1e-5).Select(i=>targetBones[i].name))}");
 
 			for(int i=0; i<quality; i++) {
 				var b = sorted[i];

@@ -7,8 +7,8 @@ using AsyncGPUReadbackRequest = UnityEngine.Rendering.AsyncGPUReadbackRequest;
 
 namespace ShaderMotion {
 public class BonePlayer {
-	HumanUtil.Armature armature;
-	FrameLayout layout;
+	Skeleton skeleton;
+	MotionLayout layout;
 	public SkinnedMeshRenderer shapeRenderer = null;
 
 	// decodec motion
@@ -17,11 +17,11 @@ public class BonePlayer {
 	public Vector3[] muscles;
 	public Dictionary<string, float> shapes;
 
-	public BonePlayer(HumanUtil.Armature armature, FrameLayout layout) {
-		this.armature = armature;
+	public BonePlayer(Skeleton skeleton, MotionLayout layout) {
+		this.skeleton = skeleton;
 		this.layout = layout;
 
-		muscles = new Vector3[armature.bones.Length];
+		muscles = new Vector3[skeleton.bones.Length];
 		shapes = new Dictionary<string, float>();
 	}
 
@@ -40,7 +40,7 @@ public class BonePlayer {
 		var rootZ = Vector3.forward;
 
 		Array.Clear(muscles, 0, muscles.Length);
-		for(int i=0; i<armature.bones.Length; i++) {
+		for(int i=0; i<skeleton.bones.Length; i++) {
 			var slot = layout.baseIndices[i];
 			foreach(var j in layout.channels[i]) {
 				var v = SampleSlot(slot);
@@ -69,15 +69,15 @@ public class BonePlayer {
 		}
 	}
 	public void ApplyTransform() {
-		for(int i=0; i<armature.bones.Length; i++)
-			if(armature.bones[i]) {
-				var axes = armature.axes[i];
-				if(armature.humanBones[i] == HumanBodyBones.Hips)
-					armature.bones[i].SetPositionAndRotation(
-						armature.root.TransformPoint(rootT * armature.scale),
-						armature.root.rotation * rootQ * Quaternion.Inverse(axes.postQ));
+		for(int i=0; i<HumanTrait.BoneCount; i++)
+			if(skeleton.bones[i]) {
+				var axes = skeleton.axes[i];
+				if(i == (int)HumanBodyBones.Hips)
+					skeleton.bones[i].SetPositionAndRotation(
+						skeleton.root.TransformPoint(rootT * skeleton.scale),
+						skeleton.root.rotation * rootQ * Quaternion.Inverse(axes.postQ));
 				else
-					armature.bones[i].localRotation = axes.preQ * muscleToRotation(axes.sign * muscles[i])
+					skeleton.bones[i].localRotation = axes.preQ * muscleToRotation(axes.sign * muscles[i])
 												* Quaternion.Inverse(axes.postQ);
 			}
 	}
@@ -85,15 +85,15 @@ public class BonePlayer {
 	HumanPose pose;
 	public void ApplyHumanPose() {
 		if(poseHandler == null) {
-			poseHandler = new HumanPoseHandler(armature.root.GetComponent<Animator>().avatar, armature.root);
+			poseHandler = new HumanPoseHandler(skeleton.root.GetComponent<Animator>().avatar, skeleton.root);
 			poseHandler.GetHumanPose(ref pose);
 		}
 		pose.bodyPosition = rootT;
 		pose.bodyRotation = rootQ;
 		Array.Clear(pose.muscles, 0, pose.muscles.Length);
-		for(int i=0; i<armature.bones.Length; i++)
+		for(int i=0; i<HumanTrait.BoneCount; i++)
 			for(int j=0; j<3; j++) {
-				var muscle = boneMuscles[(int)armature.humanBones[i], j];
+				var muscle = boneMuscles[i, j];
 				if(muscle >= 0)
 					pose.muscles[muscle] += muscles[i][j];
 			}

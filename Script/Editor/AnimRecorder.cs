@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 namespace ShaderMotion {
 [System.Serializable] // this is serializable to survive code reload
 public class AnimRecorder {
-	// serializable
+	[SerializeField]
 	Animator animator;
 	Transform hips;
 	GameObjectRecorder recorder;
@@ -102,11 +102,9 @@ public class AnimRecorder {
 			clip.SetCurve("", typeof(Animator), AnimatorMuscleName[i], muscleCurves[i]);
 	}
 
-	// non serializable
 	[System.NonSerialized]
 	HumanPose humanPose;
 	HumanPoseHandler poseHandler;
-
 	public void TakeSnapshot(float deltaTime) {
 		if(poseHandler == null)
 			poseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
