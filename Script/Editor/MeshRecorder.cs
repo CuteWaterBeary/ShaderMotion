@@ -130,8 +130,9 @@ public class MeshRecorder {
 	}
 	public static string CreateRecorderPath(Animator animator) {
 		var name = animator.avatar.name;
-		return Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)), "auto",
+		var path = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)), "auto",
 			(name.EndsWith("Avatar") ? name.Substring(0, name.Length-6) : name) + "Recorder.asset");
+		return path.StartsWith("Assets") ? path : Path.Combine("Assets", path);
 	}
 }
 class MeshRecorderEditor {

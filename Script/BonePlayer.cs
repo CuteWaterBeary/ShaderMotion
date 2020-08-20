@@ -91,15 +91,29 @@ public class BonePlayer {
 		pose.bodyPosition = rootT;
 		pose.bodyRotation = rootQ;
 		Array.Clear(pose.muscles, 0, pose.muscles.Length);
+		// TODO: this part needs rework to improve twist distribution
 		for(int i=0; i<HumanTrait.BoneCount; i++)
 			for(int j=0; j<3; j++) {
 				var muscle = boneMuscles[i, j];
 				if(muscle >= 0)
 					pose.muscles[muscle] += muscles[i][j];
+				else {
+					var ii = HumanTrait.GetParentBone(i);
+					if(ii >= 0) {
+						muscle = boneMuscles[ii, j];
+						if(muscle >= 0)
+							pose.muscles[muscle] += muscles[i][j];
+					}
+				}
 			}
 		for(int i=0; i<HumanTrait.MuscleCount; i++)
 			pose.muscles[i] /= pose.muscles[i] >= 0 ? muscleLimits[i,1] : -muscleLimits[i,0];
 		poseHandler.SetHumanPose(ref pose);
+
+		var axes = skeleton.axes[(int)HumanBodyBones.Hips];
+		skeleton.bones[(int)HumanBodyBones.Hips].SetPositionAndRotation(
+						skeleton.root.TransformPoint(rootT * skeleton.scale),
+						skeleton.root.rotation * rootQ * Quaternion.Inverse(axes.postQ));
 	}
 	public void ApplyBlendShape() {
 		if(shapeRenderer) {

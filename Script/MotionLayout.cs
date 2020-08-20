@@ -23,7 +23,7 @@ public class MotionLayout {
 				chan.AddRange(Enumerable.Range(3, 12));
 			else
 				for(int j=0; j<3; j++)
-					if(!(skeleton.axes[i].max[j] == 0 && skeleton.axes[i].min[j] == 0))
+					if(!float.IsNaN(skeleton.axes[i].max[j]))
 						chan.Add(j);
 			channels[i] = chan.ToArray();
 		}

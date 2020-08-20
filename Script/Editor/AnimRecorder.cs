@@ -152,8 +152,8 @@ public class AnimRecorder {
 		setHumanCurves(clip, rootCurves, muscleCurves);
 	}
 
-	static readonly int[,]   MuscleFromBone = new int[HumanTrait.BoneCount, 3];
-	static readonly string[] AnimatorMuscleName = new string[HumanTrait.MuscleCount];
+	public static readonly int[,]   MuscleFromBone = new int[HumanTrait.BoneCount, 3];
+	public static readonly string[] AnimatorMuscleName = new string[HumanTrait.MuscleCount];
 	static readonly string[] axes = new[]{"x", "y", "z", "w"};
 	static AnimRecorder() {
 		for(int i=0; i<HumanTrait.BoneCount; i++)

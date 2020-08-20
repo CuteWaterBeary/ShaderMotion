@@ -9,39 +9,53 @@ public struct BoneAxes {
 	static readonly MethodInfo GetPreRotation  = typeof(Avatar).GetMethod("GetPreRotation", BindingFlags.NonPublic | BindingFlags.Instance);
 	static readonly MethodInfo GetPostRotation = typeof(Avatar).GetMethod("GetPostRotation", BindingFlags.NonPublic | BindingFlags.Instance);
 	static readonly MethodInfo GetLimitSign    = typeof(Avatar).GetMethod("GetLimitSign", BindingFlags.NonPublic | BindingFlags.Instance);
-	static readonly Regex Constrained = new Regex(@"Jaw|Toes|Eye|Proximal|Intermediate|Distal$");
+	static readonly Dictionary<HumanBodyBones,HumanBodyBones> fixImplicitAxis = new Dictionary<HumanBodyBones,HumanBodyBones>{
+		{HumanBodyBones.LeftLowerLeg,	HumanBodyBones.LeftUpperLeg},
+		{HumanBodyBones.LeftFoot,		HumanBodyBones.LeftUpperLeg},
+		{HumanBodyBones.LeftShoulder,	HumanBodyBones.LeftUpperArm},
+		{HumanBodyBones.LeftLowerArm,	HumanBodyBones.LeftUpperArm},
+		{HumanBodyBones.LeftHand,		HumanBodyBones.LeftUpperArm},
+		{HumanBodyBones.RightLowerLeg,	HumanBodyBones.RightUpperLeg},
+		{HumanBodyBones.RightFoot,		HumanBodyBones.RightUpperLeg},
+		{HumanBodyBones.RightShoulder,	HumanBodyBones.RightUpperArm},
+		{HumanBodyBones.RightLowerArm,	HumanBodyBones.RightUpperArm},
+		{HumanBodyBones.RightHand,		HumanBodyBones.RightUpperArm},
+	};
 
 	public Quaternion preQ, postQ; // bone.localRotation * postQ == preQ * muscleQ(sign * angle)
 	public float sign;
-	public Vector3 min, max; // 0 = locked, NaN = non-human or affected by twist distribution
+	public Vector3 min, max; // NaN == axis is locked (Jaw|Toes|Eye|Proximal|Intermediate|Distal)
 	public BoneAxes(Transform bone) {
 		sign  = 1;
 		postQ = Quaternion.LookRotation(Vector3.right, Vector3.forward); // Unity's convention: Y-axis = twist
 		preQ  = bone.localRotation * postQ;
-		min   = Vector3.zero * float.NaN;
-		max   = Vector3.zero * float.NaN;
+		min   = float.NegativeInfinity * new Vector3(1,1,1);
+		max   = float.PositiveInfinity * new Vector3(1,1,1);
 	}
 	public BoneAxes(Avatar avatar, HumanBodyBones humanBone) {
 		var sign3 = (Vector3)GetLimitSign.Invoke(avatar, new object[]{humanBone});
-		var signQ = Quaternion.LookRotation(new Vector3(0, 0, sign3.x*sign3.y),
-											new Vector3(0, sign3.x*sign3.z, 0));
+		min = max = float.NaN * Vector3.zero;
+		for(int i=0; i<3; i++) {
+			var muscle = HumanTrait.MuscleFromBone((int)humanBone, i);
+			if(muscle >= 0) {
+				min[i] = HumanTrait.GetMuscleDefaultMin(muscle);
+				max[i] = HumanTrait.GetMuscleDefaultMax(muscle);
+			} else if(humanBone == HumanBodyBones.Hips || fixImplicitAxis.ContainsKey(humanBone)) {
+				min[i] = float.NegativeInfinity;
+				max[i] = float.PositiveInfinity;
+				// if an axis is implicitly controlled by twist distribution, fix its sign
+				if(humanBone != HumanBodyBones.Hips) {
+					var s = (Vector3)GetLimitSign.Invoke(avatar, new object[]{fixImplicitAxis[humanBone]});
+					sign3[i] *= (sign3.x*sign3.y*sign3.z) * (s.x*s.y*s.z);
+				}
+			}
+		}
 		// bake non-uniform sign into uniform sign:
 		// muscleQ(sign3 * angle) == det(sign3)flip(sign3) * muscleQ(det(sign3) * angle) * det(sign3)flip(sign3)
+		var signQ = Quaternion.LookRotation(new Vector3(0, 0, sign3.x*sign3.y), new Vector3(0, sign3.x*sign3.z, 0));
 		preQ  = (Quaternion)GetPreRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
 		postQ = (Quaternion)GetPostRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
 		sign  = sign3.x*sign3.y*sign3.z;
-		// rotation min/max
-		min = max = Vector3.zero * (Constrained.IsMatch(HumanTrait.BoneName[(int)humanBone]) ? 0 : float.NaN);
-		for(int i=0; i<3; i++) {
-			var muscle = HumanTrait.MuscleFromBone((int)humanBone, i);
-			if(muscle >= 0) { // use global limits since most avatars keep default values
-				min[i] = HumanTrait.GetMuscleDefaultMin(muscle);
-				max[i] = HumanTrait.GetMuscleDefaultMax(muscle);
-			}
-		}
-		// hips uses rootQ
-		if(humanBone == HumanBodyBones.Hips)
-			ClearPreQ();
 	}
 	public void ClearPreQ() {
 		// use rootQ instead of muscleQ: bone.rotation * postQ == rootQ * preQ

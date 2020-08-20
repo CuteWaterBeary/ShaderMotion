@@ -12,7 +12,10 @@ public class MotionPlayer : MonoBehaviour  {
 	
 	[System.NonSerialized]
 	private GPUReader gpuReader = new GPUReader();
+	[System.NonSerialized]
 	private BonePlayer player;
+	[System.NonSerialized]
+	public bool useHumanPose;
 	void OnEnable() {
 		// unbox null
 		var animator = (this.animator?this.animator:null)??GetComponent<Animator>(); 
@@ -32,7 +35,10 @@ public class MotionPlayer : MonoBehaviour  {
 		var request = gpuReader.Request(motionBuffer);
 		if(request != null && !request.Value.hasError) {
 			player.Update(request.Value);
-			player.ApplyTransform();
+			if(useHumanPose)
+				player.ApplyHumanPose();
+			else
+				player.ApplyTransform();
 			player.ApplyBlendShape();
 		}
 	}

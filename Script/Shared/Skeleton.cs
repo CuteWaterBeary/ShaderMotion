@@ -36,11 +36,12 @@ public class Skeleton {
 				parents[i] = b ? Array.IndexOf(bones, b) : -1;
 			}
 		}
-		// retarget axes.preQ for parent change (hips is already set relative to root)
+		// retarget axes.preQ for parent change
 		for(int i=0; i<bones.Length; i++)
-			if(bones[i] && i != (int)HumanBodyBones.Hips) {
-				axes[i].preQ = Quaternion.Inverse((parents[i] < 0 ? root : bones[parents[i]]).rotation)
-							* bones[i].parent.rotation * axes[i].preQ;
+			if(bones[i]) {
+				if(i != (int)HumanBodyBones.Hips) // hips preQ is already set relative to root
+					axes[i].preQ = Quaternion.Inverse((parents[i] < 0 ? root : bones[parents[i]]).rotation)
+								* bones[i].parent.rotation * axes[i].preQ;
 				if(parents[i] < 0)
 					axes[i].ClearPreQ();
 			}

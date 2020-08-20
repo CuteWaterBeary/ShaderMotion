@@ -193,9 +193,10 @@ public class MeshPlayer {
 	public static string CreatePlayerPath(Animator animator, SkinnedMeshRenderer smr) {
 		var aname = animator.avatar.name;
 		var mname = smr.sharedMesh.name;
-		return Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)), "auto",
+		var path = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)), "auto",
 			(aname.EndsWith("Avatar") ? aname.Substring(0, aname.Length-6) : aname)
 			+ (char.ToUpper(mname[0]) + mname.Substring(1)) + "Player.asset");
+		return path.StartsWith("Assets") ? path : Path.Combine("Assets", path);
 	}
 }
 class MeshPlayerEditor {
