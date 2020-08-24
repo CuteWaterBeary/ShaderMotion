@@ -10,13 +10,14 @@ SubShader {
 		Cull Off
 		ZTest Always ZWrite Off
 CGPROGRAM
-#pragma target 5.0
+#pragma target 4.0
 #pragma vertex vert
 #pragma fragment frag
 #pragma geometry geom
 #include <UnityCG.cginc>
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
+#include "Layout.hlsl"
 
 float _AutoHide;
 float _Layer;
@@ -83,7 +84,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
 	float2 flip = float2(_Layer == 0 ? 1 : -1, _ProjectionParams.x);
-	float4 rect = (LocateSlot(slot) * 2 - 1) * flip.xyxy;
+	float4 rect = (GetSlotRect(slot) * 2 - 1) * flip.xyxy;
 	float  data = chan < 3 ? rotationToMuscle(rot)[chan] * sign / PI
 				: chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)] / _PositionLimit
 				: chan < 12 ? rot.c1[chan-9] : rot.c2[chan-12];
@@ -95,7 +96,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	}
 
 	float3 c0, c1, c2, c3;
-	EncodeSigned(data, c0, c1, o.color[0], o.color[1]);
+	VideoEncodeFloat(data, c0, c1, o.color[0], o.color[1]);
 	if(chan >= 3 && chan < 6)
 		o.color[0] = c0, o.color[1] = c1;
 

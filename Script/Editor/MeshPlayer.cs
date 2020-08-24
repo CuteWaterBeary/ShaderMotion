@@ -15,7 +15,7 @@ public class MeshPlayer {
 			var slot = layout.baseIndices[i] - (layout.channels[i][0] - (layout.channels[i][0] < 3 ? 0 : 3));
 			var mask = layout.channels[i].Sum(j => 1<<j);
 			boneData[i, 0] = slot;
-			boneData[i, 1] = (mask & 7) + (skel.axes[i].sign > 0 ? 0 : 8);
+			boneData[i, 1] = (mask & 7) + (skel.axes[i].sign > 0 ? 0 : 8) + (skel.axes[i].signX > 0 ? 0 : 16);
 
 			ancestors[i] = new List<int>();
 			for(int b=i; b>=0; b=skel.parents[b])
@@ -29,18 +29,25 @@ public class MeshPlayer {
 			for(int j=0; j<ancestors[i].Count; j++) {
 				var b = ancestors[i][j];
 				var p = skel.parents[b];
-				var bone = skel.bones[b];
-				var par = p < 0 ? skel.root : skel.bones[p];
-				var invQ = Quaternion.Inverse(p < 0 ? par.rotation : par.rotation * skel.axes[p].postQ);
-				var pos = (invQ * skel.root.rotation) * skel.root.InverseTransformVector(bone.position - par.position);
-				var rot = (invQ * par.rotation * skel.axes[b].preQ).eulerAngles * Mathf.Deg2Rad;
-				if(p < 0) // save scale instead of position for rootT
-					pos = new Vector3(1,1,1) * skel.scale;
+				Vector3 pos, rot;
+				if(p < 0) {
+					rot = Vector3.zero;
+					pos = new Vector3(0, skel.scale, 0);
+				} else {
+					rot = (Quaternion.Inverse(skel.axes[p].postQ) * skel.axes[b].preQ).eulerAngles * Mathf.Deg2Rad;
+					pos = (Quaternion.Inverse(skel.bones[p].rotation * skel.axes[p].postQ) * skel.root.rotation)
+							* skel.root.InverseTransformVector(skel.bones[b].position - skel.bones[p].position);
+				}
 				colors[(i)*tex.width + j*2 + 0] = new Color(pos.x, pos.y, pos.z, boneData[b, 0]);
 				colors[(i)*tex.width + j*2 + 1] = new Color(rot.x, rot.y, rot.z, boneData[b, 1]);
 			}
 		tex.SetPixels(colors);
 		tex.Apply(false, false);
+
+		// enforce nearest sampler
+		tex.wrapMode = TextureWrapMode.Clamp;
+		tex.filterMode = FilterMode.Point;
+		tex.anisoLevel = 0;
 	}
 	public static void CreatePlayerMesh(Mesh mesh, Skeleton skel, MotionLayout layout, Mesh srcMesh, Transform[] srcBones, int quality=2, int shapeQuality=4, float motionRadius=2) {
 		var hipsIndex = (int)HumanBodyBones.Hips;
@@ -54,8 +61,9 @@ public class MeshPlayer {
 		var srcVertices = srcMesh.vertices;
 		var srcNormals  = srcMesh.normals;
 		var srcTangents = srcMesh.tangents;
-		var srcUVs      = srcMesh.uv;
 		MeshUtil.FixNormalTangents(srcMesh, ref srcNormals, ref srcTangents);
+		var srcUVs = new List<Vector4>();
+		srcMesh.GetUVs(0, srcUVs);
 		for(int v=0; v<srcMesh.vertexCount; v++)
 			for(int i=0; i<quality; i++) {
 				var bone   = boneWeightBindposes[v, i].Item1;

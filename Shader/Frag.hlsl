@@ -4,16 +4,18 @@ float _Cutoff;
 float _NearClip;
 
 struct FragInput {
-	float3 vertex : TEXCOORD0;
-	float3 normal : TEXCOORD1;
-	float2 tex : TEXCOORD2;
-	float4 color : COLOR;
+	float2 tex : TEXCOORD0;
+	float3 vertex : TEXCOORD1;
+	float3 normal : TEXCOORD2;
 	float4 pos : SV_Position;
 	UNITY_VERTEX_OUTPUT_STEREO
 };
 
 float4 frag(FragInput i) : SV_Target {
-	float4 color = tex2D(_MainTex, i.tex) * _Color * i.color;
+	float4 color = tex2D(_MainTex, i.tex) * _Color;
+#if SHADER_API_MOBILE
+	return float4(color.rgb, 1);
+#endif
 #ifdef _ALPHATEST_ON
 	if(color.a <= _Cutoff)
 		discard;

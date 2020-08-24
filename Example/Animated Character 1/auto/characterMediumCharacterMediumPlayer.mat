@@ -20,12 +20,16 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _Armature:
-        m_Texture: {fileID: 28369387141914036, guid: 9ace1841caf8df748a58203b9647ac91,
+        m_Texture: {fileID: 28607977858193210, guid: 9ace1841caf8df748a58203b9647ac91,
           type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 2800000, guid: aebb532dd9bbb7d458f971f471d03afa, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MotionDec:
+        m_Texture: {fileID: 8600000, guid: 0247e5cfe3e145b4d9cba5360c02bfea, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:

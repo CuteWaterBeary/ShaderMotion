@@ -15,10 +15,12 @@ float3x3 expAxisAngle(float3 axisAngle, float3x3 v, float eps=1e-5) {
 }
 // (x,y,z) => exp(yJ+zK) * exp(xI)
 float3x3 muscleToRotation(float3 muscle) {
-	return expAxisAngle(float3(0, muscle.yz), float3x3(
+	float3x3 m = expAxisAngle(float3(0, muscle.yz), float3x3(
 		1, 0, 0,
 		0, cos(muscle.x), -sin(muscle.x),
 		0, +sin(muscle.x), cos(muscle.x)));
+	m.c2 = cross(m.c0, m.c1); // save instruction
+	return m;
 }
 float3 rotationToMuscle(float3x3 rot, float eps=1e-5) {
 	float cosYZ = rot.c0.x;
@@ -27,17 +29,10 @@ float3 rotationToMuscle(float3x3 rot, float eps=1e-5) {
 		 	float2(-rot.c0.z, rot.c0.y) * (cosYZ > 1-eps ? 4.0/3 - cosYZ/3 : acos(cosYZ) * rsqrt(1-cosYZ*cosYZ)));
 }
 float3x3 mulEulerYXZ(float3x3 m, float3 rad) {
-	float3x3 m0;
 	float3 co = cos(rad), si = sin(rad);
-	m0 = m;
-	m.c2 = m0.c2*co.y + m0.c0*si.y;
-	m.c0 = m0.c0*co.y - m0.c2*si.y;
-	m0 = m;
-	m.c1 = m0.c1*co.x + m0.c2*si.x;
-	m.c2 = m0.c2*co.x - m0.c1*si.x;
-	m0 = m;
-	m.c0 = m0.c0*co.z + m0.c1*si.z;
-	m.c1 = m0.c1*co.z - m0.c0*si.z;
+	m = mul(m, float3x3(co.y,0,+si.y, 0,1,0, -si.y,0,co.y));
+	m = mul(m, float3x3(1,0,0, 0,co.x,-si.x, 0,+si.x,co.x));
+	m = mul(m, float3x3(co.z,-si.z,0, +si.z,co.z,0, 0,0,1));
 	return m;
 }
 void orthonormalize(float3 u, float3 v, out float3 U, out float3 V) {

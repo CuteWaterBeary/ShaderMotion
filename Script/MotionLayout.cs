@@ -35,7 +35,8 @@ public class MotionLayout {
 				slot += channels[(int)humanBone].Length;
 			}
 		}
-		Debug.Assert(baseIndices.All(i => i >= 0));
+		if(baseIndices.Any(i => i < 0))
+			Debug.LogWarning("some bones are not bound to slot");
 	}
 	public static (int, HumanBodyBones[])[] defaultHumanLayout = new []{
 		// roughly ordered by HumanTrait.GetBoneDefaultHierarchyMass

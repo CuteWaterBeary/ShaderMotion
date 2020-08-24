@@ -2,7 +2,10 @@ fileFormatVersion: 2
 guid: 00a71ddf3b7dffc489c7eab664308baa
 ShaderImporter:
   externalObjects: {}
-  defaultTextures: []
+  defaultTextures:
+  - _MainTex: {instanceID: 0}
+  - _Armature: {instanceID: 0}
+  - _MotionDec: {fileID: 8600000, guid: 0247e5cfe3e145b4d9cba5360c02bfea, type: 2}
   nonModifiableTextures: []
   userData: 
   assetBundleName: 

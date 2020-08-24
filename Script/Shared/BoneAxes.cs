@@ -23,14 +23,15 @@ public struct BoneAxes {
 	};
 
 	public Quaternion preQ, postQ; // bone.localRotation * postQ == preQ * muscleQ(sign * angle)
-	public float sign;
+	public float sign, signX;
 	public Vector3 min, max; // NaN == axis is locked (Jaw|Toes|Eye|Proximal|Intermediate|Distal)
 	public BoneAxes(Transform bone) {
 		sign  = 1;
-		postQ = Quaternion.LookRotation(Vector3.right, Vector3.forward); // Unity's convention: Y-axis = twist
-		preQ  = bone.localRotation * postQ;
+		signX = 1;
 		min   = float.NegativeInfinity * new Vector3(1,1,1);
 		max   = float.PositiveInfinity * new Vector3(1,1,1);
+		postQ = Quaternion.LookRotation(Vector3.right, Vector3.forward); // Unity's convention: Y-axis = twist
+		preQ  = bone.localRotation * postQ;
 	}
 	public BoneAxes(Avatar avatar, HumanBodyBones humanBone) {
 		var sign3 = (Vector3)GetLimitSign.Invoke(avatar, new object[]{humanBone});
@@ -56,6 +57,7 @@ public struct BoneAxes {
 		preQ  = (Quaternion)GetPreRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
 		postQ = (Quaternion)GetPostRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
 		sign  = sign3.x*sign3.y*sign3.z;
+		signX = sign3.y*sign3.z;
 	}
 	public void ClearPreQ() {
 		// use rootQ instead of muscleQ: bone.rotation * postQ == rootQ * preQ

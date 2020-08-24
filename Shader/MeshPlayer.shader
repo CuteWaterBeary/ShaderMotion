@@ -12,8 +12,8 @@ Properties {
 	_NearClip ("NearClip", Float) = 0
 
 	[Header(Motion)]
-	[NoScaleOffset]_Armature ("Armature", 2D) = "black" {}
-	[Toggle(_ALPHAPREMULTIPLY_ON)] _Decoded ("Decoded", Float) = 0
+	[NoScaleOffset] _Armature ("Armature", 2D) = "black" {}
+	[NoScaleOffset] _MotionDec ("MotionDec", 2D) = "black" {}
 	_Layer ("Layer", Float) = 0
 	_RotationTolerance ("RotationTolerance", Range(0, 1)) = 0.1
 }
@@ -23,27 +23,21 @@ SubShader {
 		Tags { "LightMode"="ForwardBase" }
 		Cull Off
 CGPROGRAM
-#pragma exclude_renderers gles
-#pragma target 5.0
+#pragma target 4.0
 #pragma vertex vert
 #pragma fragment frag
 #pragma shader_feature _ALPHATEST_ON
-#pragma multi_compile _ _ALPHAPREMULTIPLY_ON
 #pragma multi_compile_instancing
+#if defined(SHADER_API_GLES3)
+	#define UNITY_COLORSPACE_GAMMA
+#endif
+
 #include <UnityCG.cginc>
 #include <Lighting.cginc>
 
 UNITY_INSTANCING_BUFFER_START(Props)
 	UNITY_DEFINE_INSTANCED_PROP(float, _Layer)
 UNITY_INSTANCING_BUFFER_END(Props)
-
-#ifdef _ALPHAPREMULTIPLY_ON
-	Texture2D _MotionDecoded;
-	#define _Motion_Decoded _MotionDecoded
-#else
-	Texture2D _Motion;
-	#define _Motion_Encoded _Motion
-#endif
 
 #include "MeshPlayer.hlsl"
 #include "Frag.hlsl"
@@ -52,14 +46,17 @@ void vert(VertInputPlayer i, out FragInput o) {
 	UNITY_SETUP_INSTANCE_ID(i);
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
+	bool highRange = true;
+	#if defined(SHADER_API_GLES3)
+		highRange = false;
+	#endif
 	VertInputSkinned I;
-	SkinVertex(i, I, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer));
+	SkinVertex(i, I, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer), highRange);
 	
 	o.vertex = mul(unity_ObjectToWorld, float4(I.vertex, 1));
 	o.normal = mul(unity_ObjectToWorld, float4(I.normal, 0));
 	o.pos = UnityWorldToClipPos(o.vertex);
 	o.tex = I.texcoord;
-	o.color = _Color;
 }
 ENDCG
 	}
