@@ -14,7 +14,7 @@ float4 GetSlotY(uint4 idx) {
 //// slot codec ////
 SamplerState LinearClamp, PointClamp;
 float3 RenderSlot(float3 c[2], float2 uv) {
-	return GammaToLinear(c[dot(floor(uv * entrySize), 1)]);
+	return GammaToLinear((uv * entrySize).x < 1 ? c[0] : c[1]);
 }
 float SampleSlot_DecodeSnorm(Texture2D_half tex, float4 rect) {
 	half3 c[2] = {

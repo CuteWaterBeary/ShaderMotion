@@ -83,25 +83,29 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	FragInput o;
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-	float2 flip = float2(_Layer == 0 ? 1 : -1, _ProjectionParams.x);
-	float4 rect = (GetSlotRect(slot) * 2 - 1) * flip.xyxy;
+	float4 rect = GetSlotRect(slot);
 	float  data = chan < 3 ? rotationToMuscle(rot)[chan] * sign / PI
 				: chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)] / _PositionLimit
 				: chan < 12 ? rot.c1[chan-9] : rot.c2[chan-12];
-
 	// background quad
 	if(i[0].tangent.w < 0) { 
-		rect = (float4(0, 0, 6.0/80, 1) * 2 - 1) * flip.xyxy;
+		rect = float4(0, 0, 6.0/80, 1);
 		data = 0;
 	}
+	if(_Layer == 1)
+		rect.xz = 1-rect.xz;
 
 	float3 c0, c1, c2, c3;
 	VideoEncodeFloat(data, c0, c1, o.color[0], o.color[1]);
 	if(chan >= 3 && chan < 6)
 		o.color[0] = c0, o.color[1] = c1;
 
+	float2 screenSize = _ScreenParams.xy/2;
+	rect = round(rect * screenSize.xyxy) / screenSize.xyxy;
+	rect = rect*2-1;
+	rect.yw *= _ProjectionParams.x;
+
 	float4 uv = float4(0,0,1,1);
-	rect = round(rect * _ScreenParams.xyxy) / _ScreenParams.xyxy;
 	o.uv = uv.xy;
 	o.pos = float4(rect.xy, UNITY_NEAR_CLIP_VALUE, 1);
 	stream.Append(o);
