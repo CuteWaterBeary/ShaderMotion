@@ -92,28 +92,29 @@ void SkinVertex(VertInputPlayer i, out VertInputSkinned o, float layer, bool hig
 		if(vtx.w < 1e-5)
 			break;
 
-		float3 pos = 0;
-		float3 rotc[3] = {{1,0,0},{0,1,0},{0,0,1}};
+		float3 pos, matc[3];
 		{
 			float4 data0 = sampleArmature(uint2(0, bone));
-			uint idx = data0.w;
+			float3 motion[4];
+			{
+				uint idx = data0.w;
+				UNITY_LOOP
+				for(int I=0; I<4; I++)
+					motion[I] = sampleSnorm3(idx+3*I, st);
+				if(highRange)
+					motion[1] = mergeSnorm3(motion[0],motion[1]);
+			}
 
-			float3 muscle[4];
-			UNITY_LOOP
-			for(int I=0; I<4; I++)
-				muscle[I] = sampleSnorm3(idx+3*I, st);
-			if(highRange)
-				muscle[1] = mergeSnorm3(muscle[0],muscle[1]);
-
-			float scale = data0.y;
-			pos = _PositionScale * scale * muscle[1];
-
-			float3 c1 = muscle[2];
-			float3 c2 = muscle[3];
-			orthonormalize(c1, c2, rotc[1], rotc[2]);
-			rotc[0] = cross(rotc[1], rotc[2]);
-			if(dot(rotc[1]-c1, rotc[1]-c1) + dot(rotc[2]-c2, rotc[2]-c2) > _RotationTolerance*_RotationTolerance)
+			pos = _PositionScale * motion[1];
+			float3 c1 = _PositionScale * motion[2];
+			float3 c2 = _PositionScale * motion[3];
+			conformalize(c1, c2, matc[1], matc[2]);
+			if(dot(matc[1]-c1, matc[1]-c1) + dot(matc[2]-c2, matc[2]-c2) > _RotationTolerance*_RotationTolerance)
 				pos = NaN;
+
+			matc[1] /= data0.y;
+			matc[2] /= data0.y;
+			matc[0] = cross(normalize(matc[1]), matc[2]);
 		}
 		for(uint I=2; I<30; I+=2) {
 			float4 data0 = sampleArmature(uint2(I+0, bone));
@@ -121,19 +122,20 @@ void SkinVertex(VertInputPlayer i, out VertInputSkinned o, float layer, bool hig
 			if(data0.w < 0)
 				break;
 
-			float3x3 rot = get3x3(rotc);
-			pos = mad3(rot, data0, pos);
-			rot = mulEulerYXZ(rot, data1.xyz);
-
-			uint idx = data0.w, maskSign = data1.w;
-			float3 muscle = PI * sampleSnorm3(idx, st);
-			muscle = !(maskSign & uint3(1,2,4)) ? 0 : maskSign & 8 ? -muscle : muscle;
-			rot = mul(rot, muscleToRotation(muscle));
-			set3x3(rotc, rot);
+			float3x3 mat = get3x3(matc);
+			pos = mad3(mat, data0, pos);
+			mat = mulEulerYXZ(mat, data1.xyz);
+			{
+				uint idx = data0.w, maskSign = data1.w;
+				float3 swingTwist = PI * sampleSnorm3(idx, st);
+				swingTwist = !(maskSign & uint3(1,2,4)) ? 0 : maskSign & 8 ? -swingTwist : swingTwist;
+				mat = mul(mat, fromSwingTwist(swingTwist));
+			}
+			set3x3(matc, mat);
 		}
-		vertex  = mad3(get3x3(rotc), vtx.xyz, vertex ) + pos * vtx.w;
-		normal  = mad3(get3x3(rotc), nml.xyz, normal );
-		tangent = mad3(get3x3(rotc), tng.xyz, tangent);
+		vertex  = mad3(get3x3(matc), vtx.xyz, vertex ) + pos * vtx.w;
+		normal  = mad3(get3x3(matc), nml.xyz, normal );
+		tangent = mad3(get3x3(matc), tng.xyz, tangent);
 	}
 #if !defined(SHADER_API_MOBILE)
 	{

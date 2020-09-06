@@ -14,7 +14,7 @@ public class MotionPlayer : MonoBehaviour  {
 	private GPUReader gpuReader = new GPUReader();
 	[System.NonSerialized]
 	private BonePlayer player;
-	[System.NonSerialized]
+	// [System.NonSerialized]
 	public bool useHumanPose;
 	void OnEnable() {
 		// unbox null

@@ -14,6 +14,7 @@ public class BonePlayer {
 	// decodec motion
 	public Quaternion rootQ;
 	public Vector3 rootT;
+	public float rootScale;
 	public Vector3[] muscles;
 	public Dictionary<string, float> shapes;
 
@@ -52,14 +53,15 @@ public class BonePlayer {
 				else if(j<9)
 					rootT[j-6] = v * 2;
 				else if(j<12)
-					rootY[j-9] = v;
+					rootY[j-9] = v * 2;
 				else if(j<15)
-					rootZ[j-12] = v;
+					rootZ[j-12] = v * 2;
 
 				slot++;
 			}
 		}
 		rootQ = Quaternion.LookRotation(rootZ, rootY);
+		rootScale = rootY.magnitude;
 
 		shapes.Clear();
 		foreach(var si in layout.shapeIndices) {
@@ -68,15 +70,20 @@ public class BonePlayer {
 			shapes[si.shape] = w + SampleSlot(si.index) * si.weight;
 		}
 	}
+	void ApplyRootMotion() {
+		var axes = skeleton.axes[(int)HumanBodyBones.Hips];
+		var rescale = rootScale / skeleton.scale;
+		skeleton.root.localScale = new Vector3(1,1,1) * rescale;
+		skeleton.bones[(int)HumanBodyBones.Hips].SetPositionAndRotation(
+						skeleton.root.TransformPoint(rootT / rescale),
+						skeleton.root.rotation * rootQ * Quaternion.Inverse(axes.postQ));
+	}
 	public void ApplyTransform() {
+		ApplyRootMotion();
 		for(int i=0; i<HumanTrait.BoneCount; i++)
 			if(skeleton.bones[i]) {
 				var axes = skeleton.axes[i];
-				if(i == (int)HumanBodyBones.Hips)
-					skeleton.bones[i].SetPositionAndRotation(
-						skeleton.root.TransformPoint(rootT * skeleton.scale),
-						skeleton.root.rotation * rootQ * Quaternion.Inverse(axes.postQ));
-				else
+				if(i != (int)HumanBodyBones.Hips)
 					skeleton.bones[i].localRotation = axes.preQ * muscleToRotation(axes.sign * muscles[i])
 												* Quaternion.Inverse(axes.postQ);
 			}
@@ -90,30 +97,19 @@ public class BonePlayer {
 		}
 		pose.bodyPosition = rootT;
 		pose.bodyRotation = rootQ;
+
 		Array.Clear(pose.muscles, 0, pose.muscles.Length);
-		// TODO: this part needs rework to improve twist distribution
 		for(int i=0; i<HumanTrait.BoneCount; i++)
 			for(int j=0; j<3; j++) {
-				var muscle = boneMuscles[i, j];
+				var (muscle, weight) = boneMuscles[i, j];
 				if(muscle >= 0)
-					pose.muscles[muscle] += muscles[i][j];
-				else {
-					var ii = HumanTrait.GetParentBone(i);
-					if(ii >= 0) {
-						muscle = boneMuscles[ii, j];
-						if(muscle >= 0)
-							pose.muscles[muscle] += muscles[i][j];
-					}
-				}
+					pose.muscles[muscle] += muscles[i][j] * weight;
 			}
 		for(int i=0; i<HumanTrait.MuscleCount; i++)
 			pose.muscles[i] /= pose.muscles[i] >= 0 ? muscleLimits[i,1] : -muscleLimits[i,0];
 		poseHandler.SetHumanPose(ref pose);
 
-		var axes = skeleton.axes[(int)HumanBodyBones.Hips];
-		skeleton.bones[(int)HumanBodyBones.Hips].SetPositionAndRotation(
-						skeleton.root.TransformPoint(rootT * skeleton.scale),
-						skeleton.root.rotation * rootQ * Quaternion.Inverse(axes.postQ));
+		ApplyRootMotion();
 	}
 	public void ApplyBlendShape() {
 		if(shapeRenderer) {
@@ -132,28 +128,39 @@ public class BonePlayer {
 				* Quaternion.AngleAxis(muscle.x, new Vector3(1,0,0));
 	}
 
-	static int[,] boneMuscles;
+	static (int, float)[,] boneMuscles;
 	static float[,] muscleLimits;
 	static BonePlayer() {
-		boneMuscles = new int[HumanTrait.BoneCount, 3];
+		boneMuscles = new (int, float)[HumanTrait.BoneCount, 3];
 		for(int i=0; i<HumanTrait.BoneCount; i++) 
 			for(int j=0; j<3; j++) {
-				var hb = i;
-				var muscle = HumanTrait.MuscleFromBone(hb, j);
+				var ii = i;
+				var jj = j;
+				var muscle = HumanTrait.MuscleFromBone(ii, jj);
+				var weight = (float)1;
 				if(muscle < 0) {
-					switch(hb) {
+					switch(ii) {
 					case (int)HumanBodyBones.LeftShoulder:
-						hb = (int)HumanBodyBones.LeftUpperArm; break;
+						ii = (int)HumanBodyBones.LeftUpperArm; break;
 					case (int)HumanBodyBones.RightShoulder:
-						hb = (int)HumanBodyBones.RightUpperArm; break;
+						ii = (int)HumanBodyBones.RightUpperArm; break;
 					case (int)HumanBodyBones.Jaw:
 						break;
+					case (int)HumanBodyBones.LeftLowerArm:
+					case (int)HumanBodyBones.RightLowerArm:
+						weight = -1;
+						jj = 0;
+						goto default;
+					case (int)HumanBodyBones.LeftLowerLeg:
+					case (int)HumanBodyBones.RightLowerLeg:
+						jj = 0;
+						goto default;
 					default:
-						hb = HumanTrait.GetParentBone(hb);break;
+						ii = HumanTrait.GetParentBone(ii);break;
 					}
-					muscle = HumanTrait.MuscleFromBone(hb, j);
+					muscle = HumanTrait.MuscleFromBone(ii, jj);
 				}
-				boneMuscles[i, j] = muscle;
+				boneMuscles[i, j] = (muscle, weight);
 			}
 		muscleLimits = new float[HumanTrait.MuscleCount, 2];
 		for(int i=0; i<HumanTrait.MuscleCount; i++) {

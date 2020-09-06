@@ -21,7 +21,7 @@ CGPROGRAM
 
 float _AutoHide;
 float _Layer;
-static float _PositionLimit = 2;
+static float _PositionScale = 2;
 
 struct VertInput {
 	float3 vertex  : POSITION;
@@ -36,7 +36,10 @@ struct GeomInput {
 	float4 tangent : TEXCOORD2;
 	float2 uv      : TEXCOORD3;
 	UNITY_VERTEX_INPUT_INSTANCE_ID
-	float3x3 GetRotation() {
+	float3 GetPosition() {
+		return vertex;
+	}
+	float3x3 GetRotationScale() {
 		float3x3 m;
 		m.c0 = cross(normalize(normal), tangent.xyz);
 		m.c1 = normal;
@@ -69,24 +72,31 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	uint  chan = i[1].tangent.w;
 	float sign = i[2].tangent.w;
 
-	// compute relative rot/pos
-	// r0 is seen as (scale(r1) * id) when sign == 0 
-	float3x3 r0 = i[0].GetRotation();
-	float3x3 r1 = i[1].GetRotation();
-	float3x3 rot;
-	rot.c1 = normalize(sign != 0 ? mul(transpose(r0), r1.c1) : r1.c1);
-	rot.c2 = normalize(sign != 0 ? mul(transpose(r0), r1.c2) : r1.c2);
-	rot.c0 = cross(rot.c1, rot.c2);
-	float3 pos = sign != 0 ? mul(transpose(r0), i[1].vertex-i[0].vertex) / dot(r0.c1, r0.c1)
-							: (i[1].vertex-i[0].vertex) / length(r1.c1);
-
-	FragInput o;
-	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+	float3x3 mat0 = i[0].GetRotationScale();
+	float3x3 mat1 = i[1].GetRotationScale();
+	float3 pos  = i[1].GetPosition() - i[0].GetPosition();
+	float3 matY = mat1.c1;
+	float3 matZ = mat1.c2;
+	if(sign != 0) { // relative to mat0
+		matY = mul(transpose(mat0), matY) / dot(mat0.c1, mat0.c1);
+		matZ = mul(transpose(mat0), matZ) / dot(mat0.c1, mat0.c1);
+		pos  = mul(transpose(mat0), pos)  / dot(mat0.c1, mat0.c1);
+	}
+	float data;
+	if(chan < 3) {
+		float3x3 rot;
+		rot.c1 = normalize(matY);
+		rot.c2 = normalize(matZ);
+		rot.c0 = cross(rot.c1, rot.c2);
+		data = toSwingTwist(rot)[chan] * sign / PI;
+	} else {
+		// scale down pos/mat if scale is too big
+		float scale = min(rsqrt(dot(matY, matY)), rcp(_PositionScale));
+		data = (chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)]
+				: chan < 12 ? matY[chan-9] : matZ[chan-12]) * scale;
+	}
 
 	float4 rect = GetSlotRect(slot);
-	float  data = chan < 3 ? rotationToMuscle(rot)[chan] * sign / PI
-				: chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)] / _PositionLimit
-				: chan < 12 ? rot.c1[chan-9] : rot.c2[chan-12];
 	// background quad
 	if(i[0].tangent.w < 0) { 
 		rect = float4(0, 0, 6.0/80, 1);
@@ -95,6 +105,8 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	if(_Layer == 1)
 		rect.xz = 1-rect.xz;
 
+	FragInput o;
+	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 	float3 c0, c1, c2, c3;
 	VideoEncodeFloat(data, c0, c1, o.color[0], o.color[1]);
 	if(chan >= 3 && chan < 6)

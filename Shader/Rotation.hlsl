@@ -4,7 +4,16 @@ static float PI = 3.14159265;
 #define c2 _13_23_33
 #define c3 _14_24_34
 
-float3x3 expAxisAngle(float3 axisAngle, float3x3 v, float eps=1e-5) {
+float3x3 fromToRotate(float3 src, float3 dst, float3x3 v) {
+	float co = dot(src, dst);
+	float3 si_axis = cross(src, dst);
+	float3 rc_axis = rsqrt(1+co) * si_axis;
+	v.c0 = co * v.c0 + (dot(rc_axis, v.c0) * rc_axis + cross(si_axis, v.c0)); // MAD optimization
+	v.c1 = co * v.c1 + (dot(rc_axis, v.c1) * rc_axis + cross(si_axis, v.c1));
+	v.c2 = co * v.c2 + (dot(rc_axis, v.c2) * rc_axis + cross(si_axis, v.c2));
+	return v;
+}
+float3x3 axisAngleRotate(float3 axisAngle, float3x3 v, float eps=1e-5) {
 	float angle = length(axisAngle), co = cos(angle), si = sin(angle);
 	float3 si_axis = axisAngle * (angle < eps ? 1 : si/angle);
 	float3 rc_axis = axisAngle * (angle < eps ? rsqrt(2) : sqrt(1-co)/angle);
@@ -13,18 +22,17 @@ float3x3 expAxisAngle(float3 axisAngle, float3x3 v, float eps=1e-5) {
 	v.c2 = co * v.c2 + (dot(rc_axis, v.c2) * rc_axis + cross(si_axis, v.c2));
 	return v;
 }
-// (x,y,z) => exp(yJ+zK) * exp(xI)
-float3x3 muscleToRotation(float3 muscle) {
-	float3x3 m = expAxisAngle(float3(0, muscle.yz), float3x3(
+float3x3 fromSwingTwist(float3 angles) {
+	// (x,y,z) => exp(yJ+zK) * exp(xI)
+	float3x3 m = axisAngleRotate(float3(0, angles.yz), float3x3(
 		1, 0, 0,
-		0, cos(muscle.x), -sin(muscle.x),
-		0, +sin(muscle.x), cos(muscle.x)));
+		0, cos(angles.x), -sin(angles.x),
+		0, +sin(angles.x), cos(angles.x)));
 	m.c2 = cross(m.c0, m.c1); // save instruction
 	return m;
 }
-float3 rotationToMuscle(float3x3 rot, float eps=1e-5) {
-	float cosYZ = rot.c0.x;
-	// NOTE: degeneracy cosYZ == -1 is omitted due to its non-unique solution & rarity (bone is flipped)
+float3 toSwingTwist(float3x3 rot, float eps=1e-5) {
+	float cosYZ = rot.c0.x; // NOTE: degeneracy cosYZ == -1 isn't handled for its unlikeliness (bone is flipped)
 	return float3(atan2(rot[2][1]-rot[1][2], rot[1][1]+rot[2][2]),
 		 	float2(-rot.c0.z, rot.c0.y) * (cosYZ > 1-eps ? 4.0/3 - cosYZ/3 : acos(cosYZ) * rsqrt(1-cosYZ*cosYZ)));
 }
@@ -35,8 +43,9 @@ float3x3 mulEulerYXZ(float3x3 m, float3 rad) {
 	m = mul(m, float3x3(co.z,-si.z,0, +si.z,co.z,0, 0,0,1));
 	return m;
 }
-void orthonormalize(float3 u, float3 v, out float3 U, out float3 V) {
-	float rsq = rsqrt(abs(dot(u,u)*dot(v,v)-dot(u,v)*dot(u,v)));
-	U = normalize(u+rsq*(dot(v,v)*u-dot(u,v)*v));
-	V = normalize(v+rsq*(dot(u,u)*v-dot(u,v)*u));
+// return a pair (U,V) nearest to (u,v) so that (U.U)=(V.V) and (U.V)=0
+void conformalize(float3 u, float3 v, out float3 U, out float3 V) {
+	float3 c = float3(dot(u,u), dot(v,v), dot(u,v)) * rsqrt(abs(dot(u,u)*dot(v,v) - dot(u,v)*dot(u,v)));
+	U = (u + c.y*u - c.z*v) / 2;
+	V = (v + c.x*v - c.z*u) / 2;
 }
