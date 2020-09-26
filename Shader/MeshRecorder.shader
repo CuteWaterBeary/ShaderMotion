@@ -108,7 +108,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	FragInput o;
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 	float3 c0, c1, c2, c3;
-	VideoEncodeFloat(data, c0, c1, o.color[0], o.color[1]);
+	EncodeVideoFloat(data, c0, c1, o.color[0], o.color[1]);
 	if(chan >= 3 && chan < 6)
 		o.color[0] = c0, o.color[1] = c1;
 

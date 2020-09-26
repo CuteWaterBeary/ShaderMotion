@@ -142,39 +142,46 @@ public class MeshPlayer {
 		mesh.RecalculateBounds();
 		// make bounds rotational invariant and extend by motion radius
 		var size = mesh.bounds.size;
-		var sizeXZ = Mathf.Max(size.x, size.z) + 2*motionRadius*skel.scale;
+		var sizeXZ = Mathf.Max(size.x, size.z) + 2*motionRadius;
 		mesh.bounds = new Bounds(mesh.bounds.center, new Vector3(sizeXZ, size.y, sizeXZ));
 	}
-	public static MeshRenderer CreatePlayer(string name, Transform parent, Animator animator, SkinnedMeshRenderer[] smrs, string assetPath) {
-		var player = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
-							?.GetComponent<MeshRenderer>();
-		if(!player || !player.GetComponent<MeshFilter>()?.sharedMesh) {
-			var assetPathNoExt = Path.ChangeExtension(assetPath, null);
-			if(!System.IO.Directory.Exists(Path.GetDirectoryName(assetPath)))
-				System.IO.Directory.CreateDirectory(Path.GetDirectoryName(assetPath));
+	public static MeshRenderer CreatePlayer(string name, Transform parent, Animator animator, SkinnedMeshRenderer[] smrs, string path) {
+		var player = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)?.GetComponent<MeshRenderer>();
+		if(!player) {
+			if(!System.IO.Directory.Exists(Path.GetDirectoryName(path)))
+				System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
 
-			var mesh = new Mesh();
-			AssetDatabase.CreateAsset(mesh, assetPath);
-
-			var tex = new Texture2D(1,1);
-			tex.name = "Armature";
-			AssetDatabase.AddObjectToAsset(tex, mesh);
-
+			var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+			if(!mesh) {
+				mesh = new Mesh();
+				AssetDatabase.CreateAsset(mesh, path);
+			}
+			var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+			if(!tex) {
+				tex = new Texture2D(1,1);
+				tex.name = "Armature";
+				AssetDatabase.AddObjectToAsset(tex, mesh);
+			}
 			var mats = new List<Material>();
 			foreach(var smr in smrs)
 				foreach(var srcMat in smr.sharedMaterials) {
-					var mat = Object.Instantiate(Resources.Load<Material>("MeshPlayer"));
+					var matPath = Path.ChangeExtension(path, mats.Count == 0 ? "mat" : $"{mats.Count}.mat");
+					var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+					if(!mat) {
+						mat = Object.Instantiate(Resources.Load<Material>("MeshPlayer"));
+						AssetDatabase.CreateAsset(mat, matPath);
+					}
+					if(srcMat.HasProperty("_Color"))
+						mat.color = srcMat.color;
 					mat.mainTexture = srcMat.mainTexture;
 					mat.SetTexture("_Armature", tex);
-					AssetDatabase.CreateAsset(mat,  assetPathNoExt + (mats.Count == 0 ? ".mat" : $"{mats.Count}.mat"));
 					mats.Add(mat);
 				}
 
-			if(!player) {
-				var go = new GameObject(name, typeof(MeshRenderer), typeof(MeshFilter));
-				go.transform.SetParent(parent, false);
-				player = go.GetComponent<MeshRenderer>();
-			}
+			var go = new GameObject(name, typeof(MeshRenderer), typeof(MeshFilter));
+			go.transform.SetParent(parent);
+			go.transform.SetPositionAndRotation(animator.transform.position, animator.transform.rotation);
+			player = go.GetComponent<MeshRenderer>();
 			player.GetComponent<MeshFilter>().sharedMesh = mesh;
 			player.sharedMaterials = mats.ToArray();
 			// copy renderer settings
@@ -194,7 +201,7 @@ public class MeshPlayer {
 			var mesh = player.GetComponent<MeshFilter>().sharedMesh;
 			CreatePlayerTex(tex, skeleton, layout);
 			CreatePlayerMesh(mesh, skeleton, layout,
-				smrs.Select(smr => (smr.sharedMesh, smr.bones)).ToArray());
+				smrs.Select(smr => (smr.sharedMesh, smr.bones)).ToArray(), motionRadius:4);
 			AssetDatabase.SaveAssets();
 		}
 		return player;

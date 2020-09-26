@@ -25,20 +25,20 @@ float4 sampleArmature(uint2 uv) {
 sampler2D _MotionDec;
 float sampleSnorm(uint idx, float4 st) {
 	float2 uv = float2(GetSlotX(idx).x, GetSlotY(idx).x) * st.xy + st.zw;
-	return BufferDecodeSnorm(tex2Dlod(_MotionDec, float4(uv, 0, 0)));
+	return DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(uv, 0, 0)));
 }
 float3 sampleSnorm3(uint idx, float4 st) {
 	float3 u = GetSlotX(idx+uint4(0,1,2,3)) * st.x + st.z;
 	float3 v = GetSlotY(idx+uint4(0,1,2,3)) * st.y + st.w;
-	return float3(	BufferDecodeSnorm(tex2Dlod(_MotionDec, float4(u[0], v[0], 0, 0))),
-					BufferDecodeSnorm(tex2Dlod(_MotionDec, float4(u[1], v[1], 0, 0))),
-					BufferDecodeSnorm(tex2Dlod(_MotionDec, float4(u[2], v[2], 0, 0))));
+	return float3(	DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[0], v[0], 0, 0))),
+					DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[1], v[1], 0, 0))),
+					DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[2], v[2], 0, 0))));
 }
 float3 mergeSnorm3(float3 f0, float3 f1) {
 	float o[3] = {0,0,0};
 	UNITY_LOOP // save instruction
 	for(uint K=0; K<3; K++)
-		o[K] = VideoDecodeFloat(f0[K], f1[K]);
+		o[K] = DecodeVideoFloat(f0[K], f1[K]);
 	return float3(o[0], o[1], o[2]);
 }
 

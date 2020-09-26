@@ -21,6 +21,7 @@ CGPROGRAM
 #include "Layout.hlsl"
 
 Texture2D _Motion;
+float4 _Motion_ST;
 float sampleSnorm(float2 uv) {
 	float4 rect = uv.xyxy + float2(-0.5,+0.5).xxyy * fwidth(uv).xyxy;
 	if(uv.x > 0.5)
@@ -40,7 +41,7 @@ void vert(appdata_customrendertexture i, out FragInput o) {
 #endif
 }
 float4 frag(FragInput i) : SV_Target {
-	return BufferEncodeSnorm(sampleSnorm(i.uv));
+	return EncodeBufferSnorm(sampleSnorm(i.uv * _Motion_ST.xy + _Motion_ST.zw));
 }
 ENDCG
 	}

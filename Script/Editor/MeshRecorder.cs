@@ -104,8 +104,11 @@ public class MeshRecorder {
 			if(!System.IO.Directory.Exists(Path.GetDirectoryName(path)))
 				System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
 
-			var mesh = new Mesh();
-			AssetDatabase.CreateAsset(mesh, path);
+			var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+			if(!mesh) {
+				mesh = new Mesh();
+				AssetDatabase.CreateAsset(mesh, path);
+			}
 
 			var go = new GameObject(name, typeof(SkinnedMeshRenderer));
 			go.transform.SetParent(parent, false);

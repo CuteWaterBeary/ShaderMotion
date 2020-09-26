@@ -14,12 +14,12 @@ float4 GetSlotY(uint4 idx) {
 //// slot codec ////
 SamplerState LinearClamp, PointClamp;
 float3 RenderSlot(float3 c[2], float2 uv) {
-	return GammaToLinear((uv * entrySize).x < 1 ? c[0] : c[1]);
+	return DecodeGamma((uv * entrySize).x < 1 ? c[0] : c[1]);
 }
 float SampleSlot_DecodeSnorm(Texture2D_half tex, float4 rect) {
 	half3 c[2] = {
-		LinearToGamma((half3)tex.SampleLevel(LinearClamp, lerp(rect.xy, rect.zw, (min(1, entrySize)-0.5) / entrySize), 0)),
-		LinearToGamma((half3)tex.SampleLevel(LinearClamp, lerp(rect.xy, rect.zw, (min(2, entrySize)-0.5) / entrySize), 0)),
+		EncodeGamma((half3)tex.SampleLevel(LinearClamp, lerp(rect.xy, rect.zw, (min(1, entrySize)-0.5) / entrySize), 0)),
+		EncodeGamma((half3)tex.SampleLevel(LinearClamp, lerp(rect.xy, rect.zw, (min(2, entrySize)-0.5) / entrySize), 0)),
 	};
-	return VideoDecodeSnorm(c[0], c[1]);
+	return DecodeVideoSnorm(c[0], c[1]);
 }

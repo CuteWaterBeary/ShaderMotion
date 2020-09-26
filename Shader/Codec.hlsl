@@ -1,30 +1,30 @@
-//// sRGB transfer function ////
-half3 LinearToGamma(half3 color) {
+//// sRGB linear color <-> sRGB gamma color ////
+half3 EncodeGamma(half3 color) {
 	return color <= 0.0031308 ? 12.92 * color : 1.055 * pow(color, 1/2.4) - 0.055;
 }
-half3 GammaToLinear(half3 color) {
+half3 DecodeGamma(half3 color) {
 	return color <= 0.04045 ? color / 12.92 : pow(color/1.055 + 0.055/1.055, 2.4);
 }
 #if defined(UNITY_COLORSPACE_GAMMA)
-#define LinearToGamma(x) (x)
-#define GammaToLinear(x) (x)
+#define EncodeGamma(x) (x)
+#define DecodeGamma(x) (x)
 #endif
-//// encode/decode snorm to render texture ////
-half4 BufferEncodeSnorm(float x) {
+//// real number <-> render texture color ////
+half4 EncodeBufferSnorm(float x) {
 	float4 scale = 0.25 * (1 << uint4(0, 8, 16, 24));
 	float4 v = frac(x * scale + scale);
 	v.xyz -= v.yzw / (1 << 8);
 	return v / (255.0/256);
 }
-float BufferDecodeSnorm(half4 v) {
+float DecodeBufferSnorm(half4 v) {
 	float4 scale = (255.0/256) / (1 << uint4(0, 8, 16, 24)) * 4;
 	return dot(v, scale) - 1;
 }
 #if !defined(SHADER_API_MOBILE)
-#define BufferEncodeSnorm(x) ((x).rrrr)
-#define BufferDecodeSnorm(x) ((x).r)
+#define EncodeBufferSnorm(x) ((x).rrrr)
+#define DecodeBufferSnorm(x) ((x).r)
 #endif
-//// encode/decode float to Gray code curve ////
+//// real number <-> Gray curve coordinates ////
 uint2 gray_decoder_pop(inout uint2 n, uint base) {
 	uint2 d = n % base;
 	n /= base;
@@ -43,8 +43,8 @@ float gray_encoder_sum(float3 state) {
 	state.yz -= float2(-0.5,+0.5);
 	return (state.y + state.z) / max(abs(state.y), abs(state.z)) * 0.5 + state.x;
 }
-//// encode/decode float to video pixels ////
-void VideoEncodeFloat(float x, out half3 hi0, out half3 hi1, out half3 lo0, out half3 lo1) {
+//// real number <-> video colors ////
+void EncodeVideoFloat(float x, out half3 hi0, out half3 hi1, out half3 lo0, out half3 lo1) {
 	const uint base = 3, base6 = base*base*base*base*base*base;
 	x = clamp((base6-1)/2 * x, -int(base6*base6-1)/2, +int(base6*base6-1)/2);
 	uint2  n = int(floor(x)) + int2(0, 1) + int(base6*base6-1)/2;
@@ -62,7 +62,7 @@ void VideoEncodeFloat(float x, out half3 hi0, out half3 hi1, out half3 lo0, out 
 	hi0.r = dot(gray_decoder_pop(n, base), wt);
 	hi0.g = dot(n, wt);
 }
-float VideoDecodeSnorm(half3 lo0, half3 lo1) {
+float DecodeVideoSnorm(half3 lo0, half3 lo1) {
 	const uint base = 3, base6 = base*base*base*base*base*base;
 	uint p = 1;
 	lo0 *= base-1, lo1 *= base-1;
@@ -76,7 +76,7 @@ float VideoDecodeSnorm(half3 lo0, half3 lo1) {
 	state.x -= (base6-1)/2;
 	return gray_encoder_sum(state) / ((base6-1)/2);
 }
-float VideoDecodeFloat(float hi, float lo) {
+float DecodeVideoFloat(float hi, float lo) {
 	const uint base = pow(3,6);
 	float2 d = float2(hi, lo) * ((base-1)/2) + (base-1)/2;
 	float3 state;

@@ -40,6 +40,8 @@ public struct BoneAxes {
 		postQ = (Quaternion)GetPostRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
 		sign  = sign3.x*sign3.y*sign3.z;
 		signX = sign3.y*sign3.z;
+		// var zyRoll = (Quaternion)GetZYRoll.Invoke(avatar, new object[]{humanBone, Vector3.zero});
+		// Debug.Assert(zyRoll == Quaternion.identity, $"{humanBone} has non-trivial zyRoll: {zyRoll}");
 	}
 	public void ClearPreQ() {
 		// use rootQ instead of SwingTwist: bone.rotation * postQ == rootQ * preQ
@@ -64,6 +66,7 @@ public struct BoneAxes {
 	static readonly MethodInfo GetPreRotation  = typeof(Avatar).GetMethod("GetPreRotation", BindingFlags.NonPublic | BindingFlags.Instance);
 	static readonly MethodInfo GetPostRotation = typeof(Avatar).GetMethod("GetPostRotation", BindingFlags.NonPublic | BindingFlags.Instance);
 	static readonly MethodInfo GetLimitSign    = typeof(Avatar).GetMethod("GetLimitSign", BindingFlags.NonPublic | BindingFlags.Instance);
+	// static readonly MethodInfo GetZYRoll       = typeof(Avatar).GetMethod("GetZYRoll", BindingFlags.NonPublic | BindingFlags.Instance);
 	static readonly int[,] MuscleFromBone = new int[HumanTrait.BoneCount, 3];
 	static readonly int[]  parentAxes = new int[HumanTrait.BoneCount];
 	static readonly HashSet<HumanBodyBones> exposeHiddenAxes = new HashSet<HumanBodyBones>{
