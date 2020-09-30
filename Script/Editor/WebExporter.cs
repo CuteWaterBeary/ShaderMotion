@@ -45,12 +45,11 @@ public class WebExporter {
 
 	[MenuItem("CONTEXT/Shader/CompileWebGL")]
 	static void CompileWebGL(MenuCommand command) {
-		foreach(Shader shader in Selection.GetFiltered<Shader>(SelectionMode.Unfiltered)) {
-			var path = AssetDatabase.GetAssetPath(shader);
-			path = Path.Combine(Path.GetDirectoryName(path), "auto",
-						Path.GetFileNameWithoutExtension(path)+".js");
-			CompileWebGL(shader, path);
-		}
+		var shader = (Shader)command.context;
+		var path = AssetDatabase.GetAssetPath(shader);
+		path = Path.Combine(Path.GetDirectoryName(path), "auto",
+					Path.GetFileNameWithoutExtension(path)+".js");
+		CompileWebGL(shader, path);
 	}
 }
 }

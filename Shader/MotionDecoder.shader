@@ -1,6 +1,6 @@
 Shader "Motion/MotionDecoder" {
 Properties {
-	// [NoScaleOffset] _Motion ("Motion", 2D) = "black" {}
+	[NoScaleOffset] _Motion ("Motion", 2D) = "black" {}
 }
 SubShader {
 	Tags { }

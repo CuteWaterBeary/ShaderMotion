@@ -96,13 +96,15 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 				: chan < 12 ? matY[chan-9] : matZ[chan-12]) * scale;
 	}
 
+	uint layer = _Layer;
 	float4 rect = GetSlotRect(slot);
 	// background quad
 	if(i[0].tangent.w < 0) { 
-		rect = float4(0, 0, 6.0/80, 1);
+		rect = layerRect;
 		data = 0;
 	}
-	if(_Layer == 1)
+	rect.xz += layer/2 * layerRect.z;
+	if(layer & 1)
 		rect.xz = 1-rect.xz;
 
 	FragInput o;

@@ -21,7 +21,7 @@ SubShader {
 	Tags { "Queue"="Geometry" "RenderType"="Opaque" }
 	Pass {
 		Tags { "LightMode"="ForwardBase" }
-		Cull Off
+		Cull [_Cull]
 CGPROGRAM
 #pragma target 4.0
 #pragma vertex vert
@@ -35,12 +35,12 @@ CGPROGRAM
 #include <UnityCG.cginc>
 #include <Lighting.cginc>
 
+#include "MeshPlayer.hlsl"
+#include "Frag.hlsl"
+
 UNITY_INSTANCING_BUFFER_START(Props)
 	UNITY_DEFINE_INSTANCED_PROP(float, _Layer)
 UNITY_INSTANCING_BUFFER_END(Props)
-
-#include "MeshPlayer.hlsl"
-#include "Frag.hlsl"
 
 void vert(VertInputPlayer i, out FragInput o) {
 	UNITY_SETUP_INSTANCE_ID(i);

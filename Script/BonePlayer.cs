@@ -9,7 +9,8 @@ namespace ShaderMotion {
 public class BonePlayer {
 	Skeleton skeleton;
 	MotionLayout layout;
-	public SkinnedMeshRenderer shapeRenderer = null;
+	public SkinnedMeshRenderer shapeRenderer;
+	public int layer;
 
 	public Vector3    hipsT;
 	public Quaternion hipsQ;
@@ -31,6 +32,9 @@ public class BonePlayer {
 	float SampleSlot(int idx) {
 		int x = idx / textureHeight;
 		int y = idx % textureHeight;
+		x += layer/2 * 3;
+		if((layer & 1) != 0)
+			x = textureWidth-1-x;
 		return texture[x + (textureHeight-1-y) * textureWidth].r;
 	}	
 	public void Update(AsyncGPUReadbackRequest req) {

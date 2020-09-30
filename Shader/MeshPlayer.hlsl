@@ -81,9 +81,10 @@ struct VertInputSkinned {
 	float4 tangent : TANGENT;
 	float2 texcoord : TEXCOORD0;
 };
-void SkinVertex(VertInputPlayer i, out VertInputSkinned o, float layer, bool highRange=true) {
-	float4 st = layer == 0 ? float4(1,1,0,0) : float4(-1,1,1,0);
-	float NaN = sqrt(-unity_ObjectToWorld._44);
+void SkinVertex(VertInputPlayer i, out VertInputSkinned o, uint layer, bool highRange=true) {
+	float4 st = float4(1, 1, layer/2 * layerRect.z, 0);
+	if(layer & 1)
+		st.xz = float2(0, 1) - st.xz;
 
 	float3 vertex = 0, normal = 0, tangent = 0;
 	for(uint J=0; J<QUALITY; J++) {
@@ -109,8 +110,10 @@ void SkinVertex(VertInputPlayer i, out VertInputSkinned o, float layer, bool hig
 			float3 c1 = _PositionScale * motion[2];
 			float3 c2 = _PositionScale * motion[3];
 			conformalize(c1, c2, matc[1], matc[2]);
-			if(dot(matc[1]-c1, matc[1]-c1) + dot(matc[2]-c2, matc[2]-c2) > _RotationTolerance*_RotationTolerance)
-				pos = NaN;
+			if(dot(matc[1]-c1, matc[1]-c1) + dot(matc[2]-c2, matc[2]-c2) > _RotationTolerance*_RotationTolerance) {
+				vertex = sqrt(-unity_ObjectToWorld._44); //NaN
+				break;
+			}
 
 			matc[1] /= data0.y;
 			matc[2] /= data0.y;
