@@ -9,13 +9,14 @@ public class MotionPlayer : MonoBehaviour  {
 	public RenderTexture motionBuffer;
 	public Animator animator;
 	public SkinnedMeshRenderer shapeRenderer;
+	public int layer;
+	public bool applyHumanPose; // for testing
 	
 	[System.NonSerialized]
 	private GPUReader gpuReader = new GPUReader();
 	[System.NonSerialized]
 	private BonePlayer player;
-	[System.NonSerialized]
-	public bool useHumanPose;
+	
 	void OnEnable() {
 		// unbox null
 		var animator = (this.animator?this.animator:null)??GetComponent<Animator>(); 
@@ -26,16 +27,22 @@ public class MotionPlayer : MonoBehaviour  {
 		layout.AddDecoderVisemeShapes(shapeRenderer?.sharedMesh);
 		player = new BonePlayer(skeleton, layout);
 		player.shapeRenderer = shapeRenderer;
+		OnValidate();
 	}
 	void OnDisable() {
 		player = null;
 	}
+	void OnValidate() {
+		// allow to change parameter on the fly
+		if(player != null)
+			player.layer = layer;
+    }
 
 	void Update() {
 		var request = gpuReader.Request(motionBuffer);
 		if(request != null && !request.Value.hasError) {
 			player.Update(request.Value);
-			if(useHumanPose)
+			if(applyHumanPose)
 				player.ApplyHumanPose();
 			else
 				player.ApplyTransform();

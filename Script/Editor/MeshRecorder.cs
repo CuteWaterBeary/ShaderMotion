@@ -104,8 +104,11 @@ public class MeshRecorder {
 			if(!System.IO.Directory.Exists(Path.GetDirectoryName(path)))
 				System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
 
-			var mesh = new Mesh();
-			AssetDatabase.CreateAsset(mesh, path);
+			var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+			if(!mesh) {
+				mesh = new Mesh();
+				AssetDatabase.CreateAsset(mesh, path);
+			}
 
 			var go = new GameObject(name, typeof(SkinnedMeshRenderer));
 			go.transform.SetParent(parent, false);
@@ -131,7 +134,7 @@ public class MeshRecorder {
 	public static string CreateRecorderPath(Animator animator) {
 		var name = animator.avatar.name;
 		var path = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)), "auto",
-			(name.EndsWith("Avatar") ? name.Substring(0, name.Length-6) : name) + "Recorder.asset");
+			(name.EndsWith("Avatar") ? name.Substring(0, name.Length-6) : name) + "Recorder.mesh");
 		return path.StartsWith("Assets") ? path : Path.Combine("Assets", path);
 	}
 }

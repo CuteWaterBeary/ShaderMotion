@@ -25,20 +25,20 @@ float4 sampleArmature(uint2 uv) {
 sampler2D _MotionDec;
 float sampleSnorm(uint idx, float4 st) {
 	float2 uv = float2(GetSlotX(idx).x, GetSlotY(idx).x) * st.xy + st.zw;
-	return BufferDecodeSnorm(tex2Dlod(_MotionDec, float4(uv, 0, 0)));
+	return DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(uv, 0, 0)));
 }
 float3 sampleSnorm3(uint idx, float4 st) {
 	float3 u = GetSlotX(idx+uint4(0,1,2,3)) * st.x + st.z;
 	float3 v = GetSlotY(idx+uint4(0,1,2,3)) * st.y + st.w;
-	return float3(	BufferDecodeSnorm(tex2Dlod(_MotionDec, float4(u[0], v[0], 0, 0))),
-					BufferDecodeSnorm(tex2Dlod(_MotionDec, float4(u[1], v[1], 0, 0))),
-					BufferDecodeSnorm(tex2Dlod(_MotionDec, float4(u[2], v[2], 0, 0))));
+	return float3(	DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[0], v[0], 0, 0))),
+					DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[1], v[1], 0, 0))),
+					DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[2], v[2], 0, 0))));
 }
 float3 mergeSnorm3(float3 f0, float3 f1) {
 	float o[3] = {0,0,0};
 	UNITY_LOOP // save instruction
 	for(uint K=0; K<3; K++)
-		o[K] = VideoDecodeFloat(f0[K], f1[K]);
+		o[K] = DecodeVideoFloat(f0[K], f1[K]);
 	return float3(o[0], o[1], o[2]);
 }
 
@@ -81,9 +81,10 @@ struct VertInputSkinned {
 	float4 tangent : TANGENT;
 	float2 texcoord : TEXCOORD0;
 };
-void SkinVertex(VertInputPlayer i, out VertInputSkinned o, float layer, bool highRange=true) {
-	float4 st = layer == 0 ? float4(1,1,0,0) : float4(-1,1,1,0);
-	float NaN = sqrt(-unity_ObjectToWorld._44);
+void SkinVertex(VertInputPlayer i, out VertInputSkinned o, uint layer, bool highRange=true) {
+	float4 st = float4(1, 1, layer/2 * layerRect.z, 0);
+	if(layer & 1)
+		st.xz = float2(0, 1) - st.xz;
 
 	float3 vertex = 0, normal = 0, tangent = 0;
 	for(uint J=0; J<QUALITY; J++) {
@@ -92,28 +93,31 @@ void SkinVertex(VertInputPlayer i, out VertInputSkinned o, float layer, bool hig
 		if(vtx.w < 1e-5)
 			break;
 
-		float3 pos = 0;
-		float3 rotc[3] = {{1,0,0},{0,1,0},{0,0,1}};
+		float3 pos, matc[3];
 		{
 			float4 data0 = sampleArmature(uint2(0, bone));
-			uint idx = data0.w;
+			float3 motion[4];
+			{
+				uint idx = data0.w;
+				UNITY_LOOP
+				for(int I=0; I<4; I++)
+					motion[I] = sampleSnorm3(idx+3*I, st);
+				if(highRange)
+					motion[1] = mergeSnorm3(motion[0],motion[1]);
+			}
 
-			float3 muscle[4];
-			UNITY_LOOP
-			for(int I=0; I<4; I++)
-				muscle[I] = sampleSnorm3(idx+3*I, st);
-			if(highRange)
-				muscle[1] = mergeSnorm3(muscle[0],muscle[1]);
+			pos = _PositionScale * motion[1];
+			float3 c1 = _PositionScale * motion[2];
+			float3 c2 = _PositionScale * motion[3];
+			conformalize(c1, c2, matc[1], matc[2]);
+			if(dot(matc[1]-c1, matc[1]-c1) + dot(matc[2]-c2, matc[2]-c2) > _RotationTolerance*_RotationTolerance) {
+				vertex = sqrt(-unity_ObjectToWorld._44); //NaN
+				break;
+			}
 
-			float scale = data0.y;
-			pos = _PositionScale * scale * muscle[1];
-
-			float3 c1 = muscle[2];
-			float3 c2 = muscle[3];
-			orthonormalize(c1, c2, rotc[1], rotc[2]);
-			rotc[0] = cross(rotc[1], rotc[2]);
-			if(dot(rotc[1]-c1, rotc[1]-c1) + dot(rotc[2]-c2, rotc[2]-c2) > _RotationTolerance*_RotationTolerance)
-				pos = NaN;
+			matc[1] /= data0.y;
+			matc[2] /= data0.y;
+			matc[0] = cross(normalize(matc[1]), matc[2]);
 		}
 		for(uint I=2; I<30; I+=2) {
 			float4 data0 = sampleArmature(uint2(I+0, bone));
@@ -121,19 +125,20 @@ void SkinVertex(VertInputPlayer i, out VertInputSkinned o, float layer, bool hig
 			if(data0.w < 0)
 				break;
 
-			float3x3 rot = get3x3(rotc);
-			pos = mad3(rot, data0, pos);
-			rot = mulEulerYXZ(rot, data1.xyz);
-
-			uint idx = data0.w, maskSign = data1.w;
-			float3 muscle = PI * sampleSnorm3(idx, st);
-			muscle = !(maskSign & uint3(1,2,4)) ? 0 : maskSign & 8 ? -muscle : muscle;
-			rot = mul(rot, muscleToRotation(muscle));
-			set3x3(rotc, rot);
+			float3x3 mat = get3x3(matc);
+			pos = mad3(mat, data0, pos);
+			mat = mulEulerYXZ(mat, data1.xyz);
+			{
+				uint idx = data0.w, maskSign = data1.w;
+				float3 swingTwist = PI * sampleSnorm3(idx, st);
+				swingTwist = !(maskSign & uint3(1,2,4)) ? 0 : maskSign & 8 ? -swingTwist : swingTwist;
+				mat = mul(mat, fromSwingTwist(swingTwist));
+			}
+			set3x3(matc, mat);
 		}
-		vertex  = mad3(get3x3(rotc), vtx.xyz, vertex ) + pos * vtx.w;
-		normal  = mad3(get3x3(rotc), nml.xyz, normal );
-		tangent = mad3(get3x3(rotc), tng.xyz, tangent);
+		vertex  = mad3(get3x3(matc), vtx.xyz, vertex ) + pos * vtx.w;
+		normal  = mad3(get3x3(matc), nml.xyz, normal );
+		tangent = mad3(get3x3(matc), tng.xyz, tangent);
 	}
 #if !defined(SHADER_API_MOBILE)
 	{
