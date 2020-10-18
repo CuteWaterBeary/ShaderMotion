@@ -41,7 +41,7 @@ public class AnimRecorder {
 			recorder.ResetRecording();
 			destroy(recorder);
 		}
-		if(proxies != null && proxies[0])
+		if(proxies != null && proxies.Length != 0 && proxies[0])
 			destroy(proxies[0].parent.gameObject);
 		animator = null;
 		recorder = null;
@@ -110,10 +110,18 @@ public class AnimRecorder {
 			poseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
 		poseHandler.GetHumanPose(ref humanPose);
 
-		proxies[0].rotation = humanPose.bodyRotation;
-		proxies[0].localPosition =
-			animator.transform.InverseTransformVector(Vector3.Scale(hips.parent.lossyScale, 
-				humanPose.bodyPosition * animator.humanScale - animator.transform.position));
+		var motionQ = animator.transform.localRotation;
+		var motionT = animator.transform.localPosition/animator.humanScale;
+		var rootQ = humanPose.bodyRotation;
+		var rootT = humanPose.bodyPosition - motionT;
+		rootT *= animator.transform.InverseTransformVector(hips.parent.TransformVector(rootT.normalized)).magnitude;
+		rootT += motionT;
+		if(true) { // ignore animator's root motion
+			rootQ = Quaternion.Inverse(motionQ) * rootQ;
+			rootT = Quaternion.Inverse(motionQ) * (rootT-motionT);
+		}
+		proxies[0].localRotation = rootQ;
+		proxies[0].localPosition = rootT;
 
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
 			var pos = Vector3.zero;
@@ -185,13 +193,13 @@ class AnimRecorderWindow : EditorWindow {
 	int frameRate = 30;
 	void OnGUI() {
 		animator = (Animator)EditorGUILayout.ObjectField("Animator", animator, typeof(Animator), true);
-		clip = (AnimationClip)EditorGUILayout.ObjectField("Clip", clip, typeof(AnimationClip), false);
+		clip = (AnimationClip)EditorGUILayout.ObjectField("Output clip", clip, typeof(AnimationClip), false);
 		frameRate = EditorGUILayout.IntSlider("Frame rate", frameRate, 1, 120);
 
-		if(recorder == null) {
-			if(GUILayout.Button("Start")) {
-				recorder = new AnimRecorder(animator);
-			}
+		if(!recorder) {
+			using(new EditorGUI.DisabledScope(!animator || !clip || !EditorApplication.isPlaying))
+				if(GUILayout.Button("Start"))
+					recorder = new AnimRecorder(animator);
 		} else if(!EditorApplication.isPlaying) {
 			recorder.Dispose();
 			recorder = null;
@@ -208,7 +216,7 @@ class AnimRecorderWindow : EditorWindow {
 	void Update() {
 		if(!EditorApplication.isPlaying || EditorApplication.isPaused)
 			return;
-		if(recorder != null)
+		if(recorder)
 			recorder.TakeSnapshot(Time.deltaTime);
 	}
 }
