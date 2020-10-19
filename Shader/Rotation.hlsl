@@ -43,9 +43,12 @@ float3x3 mulEulerYXZ(float3x3 m, float3 rad) {
 	m = mul(m, float3x3(co.z,-si.z,0, +si.z,co.z,0, 0,0,1));
 	return m;
 }
-// return a pair (U,V) nearest to (u,v) so that (U.U)=(V.V) and (U.V)=0
-void conformalize(float3 u, float3 v, out float3 U, out float3 V) {
-	float3 c = float3(dot(u,u), dot(v,v), dot(u,v)) * rsqrt(abs(dot(u,u)*dot(v,v) - dot(u,v)*dot(u,v)));
-	U = (u + c.y*u - c.z*v) / 2;
-	V = (v + c.x*v - c.z*u) / 2;
+// return a orthogonal pair (U,V) closest to (u,v)
+float orthogonalize(float3 u, float3 v, out float3 U, out float3 V) {
+	float B = dot(u,v) * -2;
+	float A = dot(u,u) + dot(v,v);
+	A += sqrt(abs(A*A - B*B));
+	U = A*u+B*v, U *= dot(u,U)/dot(U,U);
+	V = A*v+B*u, V *= dot(v,V)/dot(V,V);
+	return dot(u-U, u-U) + dot(v-V, v-V);
 }

@@ -34,8 +34,9 @@ public class MotionPlayer : MonoBehaviour  {
 	}
 	void OnValidate() {
 		// allow to change parameter on the fly
-		if(player != null)
-			player.layer = layer;
+		if(player == null)
+			return;
+		player.layer = layer;
     }
 
 	void Update() {

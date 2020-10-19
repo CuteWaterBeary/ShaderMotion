@@ -1,6 +1,6 @@
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
-#include "Layout.hlsl"
+#include "VideoLayout.hlsl"
 
 // helper functions to enforce column-major
 // because compiler treats float3x3 like row-major when used across for loop
@@ -14,8 +14,8 @@ void set3x3(out float3 c[3], float3x3 m) {
 	c[0] = m.c0, c[1] = m.c1, c[2] = m.c2;
 }
 
-const static float _PositionScale = 2;
 float _RotationTolerance;
+static const float _PositionScale = 2;
 
 Texture2D _Armature;
 float4 sampleArmature(uint2 uv) {
@@ -24,12 +24,12 @@ float4 sampleArmature(uint2 uv) {
 
 sampler2D _MotionDec;
 float sampleSnorm(uint idx, float4 st) {
-	float2 uv = float2(GetSlotX(idx).x, GetSlotY(idx).x) * st.xy + st.zw;
+	float2 uv = float2(GetTileX(idx).x, GetTileY(idx).x) * st.xy + st.zw;
 	return DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(uv, 0, 0)));
 }
 float3 sampleSnorm3(uint idx, float4 st) {
-	float3 u = GetSlotX(idx+uint4(0,1,2,3)) * st.x + st.z;
-	float3 v = GetSlotY(idx+uint4(0,1,2,3)) * st.y + st.w;
+	float3 u = GetTileX(idx+uint4(0,1,2,3)) * st.x + st.z;
+	float3 v = GetTileY(idx+uint4(0,1,2,3)) * st.y + st.w;
 	return float3(	DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[0], v[0], 0, 0))),
 					DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[1], v[1], 0, 0))),
 					DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[2], v[2], 0, 0))));
@@ -106,17 +106,16 @@ void SkinVertex(VertInputPlayer i, out VertInputSkinned o, uint layer, bool high
 					motion[1] = mergeSnorm3(motion[0],motion[1]);
 			}
 
-			pos = _PositionScale * motion[1];
-			float3 c1 = _PositionScale * motion[2];
-			float3 c2 = _PositionScale * motion[3];
-			conformalize(c1, c2, matc[1], matc[2]);
-			if(dot(matc[1]-c1, matc[1]-c1) + dot(matc[2]-c2, matc[2]-c2) > _RotationTolerance*_RotationTolerance) {
+			pos = motion[1];
+			pos *= _PositionScale;
+			float err = orthogonalize(motion[2], motion[3], matc[1], matc[2]);
+			if(err + pow(max(length(matc[1]), length(matc[2])) - 1, 2) > _RotationTolerance * _RotationTolerance) {
 				vertex = sqrt(-unity_ObjectToWorld._44); //NaN
 				break;
 			}
-
-			matc[1] /= data0.y;
-			matc[2] /= data0.y;
+			float rlen2 = rsqrt(dot(matc[2],matc[2]));
+			matc[1] *= rlen2 / data0.y;
+			matc[2] *= rlen2 * length(matc[1]);
 			matc[0] = cross(normalize(matc[1]), matc[2]);
 		}
 		for(uint I=2; I<30; I+=2) {

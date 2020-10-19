@@ -1,12 +1,10 @@
-Shader "Motion/MotionDecoder" {
+Shader "Motion/VideoDecoder" {
 Properties {
-	[NoScaleOffset] _Motion ("Motion", 2D) = "black" {}
+	_Motion ("Motion", 2D) = "black" {}
 }
 SubShader {
-	Tags { }
 	Pass {
 		Lighting Off
-		Blend One Zero
 CGPROGRAM
 #pragma target 4.0
 #pragma vertex vert
@@ -18,15 +16,17 @@ CGPROGRAM
 #include "UnityCustomRenderTexture.cginc"
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
-#include "Layout.hlsl"
+#include "VideoLayout.hlsl"
 
 Texture2D _Motion;
 float4 _Motion_ST;
 float sampleSnorm(float2 uv) {
-	float4 rect = uv.xyxy + float2(-0.5,+0.5).xxyy * fwidth(uv).xyxy;
+	float4 rect = GetTileRect(uv);
 	if(uv.x > 0.5)
 		rect.xz = rect.zx;
-	return SampleSlot_DecodeSnorm(_Motion, rect);
+	ColorTile c;
+	SampleTile(c, _Motion, rect * _Motion_ST.xyxy + _Motion_ST.zwzw);
+	return DecodeVideoSnorm(c);
 }
 struct FragInput {
 	float2 uv : TEXCOORD0;
@@ -41,7 +41,7 @@ void vert(appdata_customrendertexture i, out FragInput o) {
 #endif
 }
 float4 frag(FragInput i) : SV_Target {
-	return EncodeBufferSnorm(sampleSnorm(i.uv * _Motion_ST.xy + _Motion_ST.zw));
+	return EncodeBufferSnorm(sampleSnorm(i.uv));
 }
 ENDCG
 	}

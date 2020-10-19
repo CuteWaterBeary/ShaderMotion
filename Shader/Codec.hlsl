@@ -25,63 +25,56 @@ float DecodeBufferSnorm(half4 v) {
 #define DecodeBufferSnorm(x) ((x).r)
 #endif
 //// real number <-> Gray curve coordinates ////
-uint2 gray_decoder_pop(inout uint2 n, uint base) {
-	uint2 d = n % base;
-	n /= base;
-	return (n & 1) ? base-1-d : d;
+uint2 gray_decoder_pop(inout uint2 state, uint radix) {
+	uint2 d = state % radix;
+	state /= radix;
+	return (state & 1) ? radix-1-d : d;
 }
-void gray_encoder_new(out float3 state, float x) {
-	state = float3(round(x), min(x-round(x), 0), max(x-round(x), 0));
-}
-void gray_encoder_add(inout float3 state, float x, uint range) {
-	float r = round(x);
-	state.xyz = (int(r) & 1) ? float3(range-1,0,0)-state.xzy : state.xyz;
-	state.yz += saturate((x-r) * float2(-1, +1)) * (state.x == float2(0, range-1) ? float2(-1, +1) : 0);
-	state.x  += r*range;
+void  gray_encoder_add(inout float3 state, float x, uint radix, bool cont=true) {
+	x = (int(state.x) & 1) ? radix-1-x : x;
+	state.x  = state.x*radix + round(x);
+	state.yz = cont && round(x) == float2(0, radix-1) ? state.yz : x-round(x);
 }
 float gray_encoder_sum(float3 state) {
-	state.yz -= float2(-0.5,+0.5);
-	return (state.y + state.z) / max(abs(state.y), abs(state.z)) * 0.5 + state.x;
+	float2 p = max(0, state.zy * float2(+2, -2));
+	return (min(p.x,p.y)/max(max(p.x,p.y)-p.x*p.y,1e-5)*(p.x-p.y)+(p.x-p.y)) * 0.5 + state.x;
 }
-//// real number <-> video colors ////
-void EncodeVideoFloat(float x, out half3 hi0, out half3 hi1, out half3 lo0, out half3 lo1) {
-	const uint base = 3, base6 = base*base*base*base*base*base;
-	x = clamp((base6-1)/2 * x, -int(base6*base6-1)/2, +int(base6*base6-1)/2);
-	uint2  n = int(floor(x)) + int2(0, 1) + int(base6*base6-1)/2;
-	float2 wt = float2(1-frac(x), frac(x))/(base-1);
-	lo1.b = dot(gray_decoder_pop(n, base), wt);
-	lo1.r = dot(gray_decoder_pop(n, base), wt);
-	lo1.g = dot(gray_decoder_pop(n, base), wt);
-	lo0.b = dot(gray_decoder_pop(n, base), wt);
-	lo0.r = dot(gray_decoder_pop(n, base), wt);
-	lo0.g = dot(gray_decoder_pop(n, base), wt);
-	hi1.b = dot(gray_decoder_pop(n, base), wt);
-	hi1.r = dot(gray_decoder_pop(n, base), wt);
-	hi1.g = dot(gray_decoder_pop(n, base), wt);
-	hi0.b = dot(gray_decoder_pop(n, base), wt);
-	hi0.r = dot(gray_decoder_pop(n, base), wt);
-	hi0.g = dot(n, wt);
+//// real number <-> video color tile ////
+static const uint ColorTileRadix = 3;
+static const uint ColorTileLen = 2;
+typedef half3 ColorTile[ColorTileLen];
+
+static const uint tilePow = pow(ColorTileRadix, ColorTileLen*3);
+void EncodeVideoSnorm(out ColorTile c, float x, bool hi=false) {
+	x = clamp((tilePow-1)/2 * x, (tilePow*tilePow-1)/2 * -1.0, (tilePow*tilePow-1)/2);
+	float2 wt = float2(1-frac(x), frac(x))/(ColorTileRadix-1);
+	uint2 state = (int)floor(x) + int((tilePow*tilePow-1)/2) + int2(0, 1);
+	{UNITY_UNROLL for(int i=int(ColorTileLen-1); i>=0; i--) {
+		c[i].b = dot(gray_decoder_pop(state, ColorTileRadix), wt);
+		c[i].r = dot(gray_decoder_pop(state, ColorTileRadix), wt);
+		c[i].g = dot(gray_decoder_pop(state, ColorTileRadix), wt);
+	}}
+	if(hi)
+		{UNITY_UNROLL for(int i=int(ColorTileLen-1); i>=0; i--) {
+			c[i].b = dot(gray_decoder_pop(state, ColorTileRadix), wt);
+			c[i].r = dot(gray_decoder_pop(state, ColorTileRadix), wt);
+			c[i].g = dot(gray_decoder_pop(state, ColorTileRadix), wt);
+		}}
 }
-float DecodeVideoSnorm(half3 lo0, half3 lo1) {
-	const uint base = 3, base6 = base*base*base*base*base*base;
-	uint p = 1;
-	lo0 *= base-1, lo1 *= base-1;
-	float3 state;
-	gray_encoder_new(state, lo1.b);
-	gray_encoder_add(state, lo1.r, (p *= base));
-	gray_encoder_add(state, lo1.g, (p *= base));
-	gray_encoder_add(state, lo0.b, (p *= base));
-	gray_encoder_add(state, lo0.r, (p *= base));
-	gray_encoder_add(state, lo0.g, (p *= base));
-	state.x -= (base6-1)/2;
-	return gray_encoder_sum(state) / ((base6-1)/2);
+float DecodeVideoSnorm(ColorTile c) {
+	float3 state = 0;
+	{UNITY_UNROLL for(int i=0; i<int(ColorTileLen); i++) {
+		c[i] *= ColorTileRadix-1;
+		gray_encoder_add(state, c[i].g, ColorTileRadix);
+		gray_encoder_add(state, c[i].r, ColorTileRadix);
+		gray_encoder_add(state, c[i].b, ColorTileRadix);
+	}}
+	return gray_encoder_sum(float3(state.x - (tilePow-1)/2, state.yz)) / ((tilePow-1)/2);
 }
 float DecodeVideoFloat(float hi, float lo) {
-	const uint base = pow(3,6);
-	float2 d = float2(hi, lo) * ((base-1)/2) + (base-1)/2;
-	float3 state;
-	gray_encoder_new(state, d[1]);
-	gray_encoder_add(state, d[0], base);
-	state.x -= (base*base-1)/2;
-	return gray_encoder_sum(state) / ((base-1)/2);
+	float2 hilo = (tilePow-1)/2 + (tilePow-1)/2 * float2(hi, lo);
+	float3 state = 0;
+	gray_encoder_add(state, hilo.x, tilePow, false);
+	gray_encoder_add(state, hilo.y, tilePow);
+	return gray_encoder_sum(float3(state.x - (tilePow*tilePow-1)/2, state.yz)) / ((tilePow-1)/2);
 }

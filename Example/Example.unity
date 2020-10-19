@@ -952,7 +952,8 @@ MonoBehaviour:
   motionBuffer: {fileID: 8600000, guid: 0247e5cfe3e145b4d9cba5360c02bfea, type: 2}
   animator: {fileID: 0}
   shapeRenderer: {fileID: 0}
-  useHumanPose: 0
+  layer: 0
+  applyHumanPose: 0
 --- !u!4 &588586082 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 400114, guid: e4299bf26a09e9049839e1a1b75e562c,
@@ -998,7 +999,7 @@ VideoPlayer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 669999322}
   m_Enabled: 1
-  m_VideoClip: {fileID: 32900000, guid: 83452be5896340d48a50f67331ac9127, type: 3}
+  m_VideoClip: {fileID: 32900000, guid: e12e116cea8fe9446a93807d90a441ba, type: 3}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
   m_TargetCamera: {fileID: 0}
@@ -1011,12 +1012,14 @@ VideoPlayer:
   m_DataSource: 0
   m_PlaybackSpeed: 1
   m_AudioOutputMode: 2
-  m_TargetAudioSources: []
-  m_DirectAudioVolumes: []
+  m_TargetAudioSources:
+  - {fileID: 0}
+  m_DirectAudioVolumes:
+  - 1
   m_Url: 
-  m_EnabledAudioTracks: 
-  m_DirectAudioMutes: 
-  m_ControlledAudioTrackCount: 0
+  m_EnabledAudioTracks: 01
+  m_DirectAudioMutes: 00
+  m_ControlledAudioTrackCount: 1
   m_PlayOnAwake: 1
   m_SkipOnDrop: 1
   m_Looping: 1
@@ -1068,7 +1071,11 @@ TextMesh:
 
     can be used as motion source.
 
-    Disable Part 2 to take effect.'
+    Disable Part 2 to take effect.
+
+    Avatar will be rescaled to
+
+    match the scale in the video'
   m_OffsetZ: 0
   m_CharacterSize: 0.1
   m_LineSpacing: 1

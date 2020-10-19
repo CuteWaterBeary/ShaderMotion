@@ -17,11 +17,11 @@ CGPROGRAM
 #include <UnityCG.cginc>
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
-#include "Layout.hlsl"
+#include "VideoLayout.hlsl"
 
 float _AutoHide;
 float _Layer;
-static float _PositionScale = 2;
+static const float _PositionScale = 2;
 
 struct VertInput {
 	float3 vertex  : POSITION;
@@ -48,7 +48,7 @@ struct GeomInput {
 	}
 };
 struct FragInput {
-	nointerpolation float3 color[2] : COLOR;
+	nointerpolation ColorTile color : COLOR;
 	float2 uv : TEXCOORD0;
 	float4 pos : SV_Position;
 	UNITY_VERTEX_OUTPUT_STEREO
@@ -82,22 +82,26 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 		matZ = mul(transpose(mat0), matZ) / dot(mat0.c1, mat0.c1);
 		pos  = mul(transpose(mat0), pos)  / dot(mat0.c1, mat0.c1);
 	}
+	float scale = length(matY);
+	matY = normalize(matY);
+	matZ = normalize(matZ);
+
 	float data;
 	if(chan < 3) {
 		float3x3 rot;
-		rot.c1 = normalize(matY);
-		rot.c2 = normalize(matZ);
+		rot.c1 = matY;
+		rot.c2 = matZ;
 		rot.c0 = cross(rot.c1, rot.c2);
 		data = toSwingTwist(rot)[chan] * sign / PI;
 	} else {
-		// scale down pos/mat if scale is too big
-		float scale = min(rsqrt(dot(matY, matY)), rcp(_PositionScale));
-		data = (chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)]
-				: chan < 12 ? matY[chan-9] : matZ[chan-12]) * scale;
+		matY *= min(1, scale);
+		matZ *= min(1, rcp(scale));
+		pos /= _PositionScale;
+		data = chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)] : chan < 12 ? matY[chan-9] : matZ[chan-12];
 	}
 
 	uint layer = _Layer;
-	float4 rect = GetSlotRect(slot);
+	float4 rect = GetTileRect(slot);
 	// background quad
 	if(i[0].tangent.w < 0) { 
 		rect = layerRect;
@@ -109,10 +113,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 
 	FragInput o;
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-	float3 c0, c1, c2, c3;
-	EncodeVideoFloat(data, c0, c1, o.color[0], o.color[1]);
-	if(chan >= 3 && chan < 6)
-		o.color[0] = c0, o.color[1] = c1;
+	EncodeVideoSnorm(o.color, data, chan >= 3 && chan < 6);
 
 	float2 screenSize = _ScreenParams.xy/2;
 	rect = round(rect * screenSize.xyxy) / screenSize.xyxy;
@@ -134,7 +135,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	stream.Append(o);
 }
 float4 frag(FragInput i) : SV_Target {
-	return float4(RenderSlot(i.color, i.uv), 1);
+	return RenderTile(i.color, i.uv);
 }
 ENDCG
 	}
