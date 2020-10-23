@@ -29,17 +29,23 @@ public class MeshPlayer {
 			for(int j=0; j<ancestors[i].Count; j++) {
 				var b = ancestors[i][j];
 				var p = skel.parents[b];
-				Vector3 pos, rot;
+				Vector3 pos;
+				Quaternion rot;
 				if(p < 0) {
-					rot = Vector3.zero;
+					rot = Quaternion.identity;
 					pos = new Vector3(0, skel.scale, 0);
+				} else if(skel.bones[p] == skel.bones[b]) {
+					rot = Quaternion.Inverse(skel.axes[p].preQ) * skel.axes[b].preQ;
+					pos = Vector3.zero;
 				} else {
-					rot = (Quaternion.Inverse(skel.axes[p].postQ) * skel.axes[b].preQ).eulerAngles * Mathf.Deg2Rad;
-					pos = (Quaternion.Inverse(skel.bones[p].rotation * skel.axes[p].postQ) * skel.root.rotation)
-							* skel.root.InverseTransformVector(skel.bones[b].position - skel.bones[p].position);
+					var inv = Quaternion.Inverse(skel.bones[p].rotation * skel.axes[p].postQ);
+					rot = inv * (skel.bones[b].parent.rotation * skel.axes[b].preQ);
+					pos = (inv * skel.root.rotation) * skel.root.InverseTransformVector(
+														skel.bones[b].position - skel.bones[p].position);
 				}
+				var deg = rot.eulerAngles * Mathf.Deg2Rad;
 				colors[(i)*tex.width + j*2 + 0] = new Color(pos.x, pos.y, pos.z, boneData[b, 0]);
-				colors[(i)*tex.width + j*2 + 1] = new Color(rot.x, rot.y, rot.z, boneData[b, 1]);
+				colors[(i)*tex.width + j*2 + 1] = new Color(deg.x, deg.y, deg.z, boneData[b, 1]);
 			}
 		tex.SetPixels(colors);
 		tex.Apply(false, false);

@@ -5,11 +5,6 @@ using Unity.Collections;
 
 namespace ShaderMotion {
 public class ShaderImpl {
-	public static Quaternion fromSwingTwist(Vector3 degree) {
-		var degreeYZ = new Vector3(0, degree.y, degree.z);
-		return Quaternion.AngleAxis(degreeYZ.magnitude, degreeYZ.normalized)
-				* Quaternion.AngleAxis(degree.x, new Vector3(1,0,0));
-	}
 	public static float DecodeVideoFloat(float hi, float lo, int pow) {
 		hi = hi * ((pow-1)/2) + (pow-1)/2;
 		lo = lo * ((pow-1)/2) + (pow-1)/2;

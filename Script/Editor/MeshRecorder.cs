@@ -16,16 +16,14 @@ public class MeshRecorder {
 		var normals  = new List<Vector3>(Enumerable.Repeat(Vector3.zero, 3));
 		var tangents = new List<Vector4>(Enumerable.Repeat(new Vector4(0,0,0, -1), 3));
 		var boneWeights = new List<BoneWeight>(Enumerable.Repeat(new BoneWeight(), 3));
-		for(int i=0; i<skel.bones.Length; i++) {
-			if(skel.bones[i])
-				bounds.Encapsulate(skel.root.InverseTransformPoint(skel.bones[i].position));
-			var par   = skel.parents[i];
-			var preM  = Matrix4x4.Rotate(skel.axes[i].preQ);
+		for(int i=0; i<skel.bones.Length; i++) if(skel.bones[i] && !skel.dummy[i]) {
+			bounds.Encapsulate(skel.root.InverseTransformPoint(skel.bones[i].position));
+			var par = skel.parents[i];
+			while(par >= 0 && skel.dummy[par])
+				par = skel.parents[par];
 			var postM = Matrix4x4.Rotate(skel.axes[i].postQ);
-			if(!skel.bones[i]) {
-				par = i;
-				preM = postM = Matrix4x4.identity;
-			}
+			var preM = Matrix4x4.Rotate(Quaternion.Inverse((par < 0 ? skel.root : skel.bones[par]).rotation)
+									* (skel.bones[i].parent.rotation * skel.axes[i].preQ));
 			var slot = layout.baseIndices[i];
 			foreach(var chan in layout.channels[i]) {
 				vertices.Add(Vector3.zero);

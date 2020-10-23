@@ -103,26 +103,14 @@ public class AnimRecorder {
 	}
 
 	[System.NonSerialized]
-	HumanPose humanPose;
-	HumanPoseHandler poseHandler;
+	private HumanPose humanPose;
+	private HumanPoseHandler humanPoseHandler;
 	public void TakeSnapshot(float deltaTime) {
-		if(poseHandler == null)
-			poseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
-		poseHandler.GetHumanPose(ref humanPose);
+		if(humanPoseHandler == null)
+			humanPoseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
+		humanPoseHandler.GetHumanPose(ref humanPose);
 
-		var motionQ = animator.transform.localRotation;
-		var motionT = animator.transform.localPosition/animator.humanScale;
-		var rootQ = humanPose.bodyRotation;
-		var rootT = humanPose.bodyPosition - motionT;
-		rootT *= animator.transform.InverseTransformVector(hips.parent.TransformVector(rootT.normalized)).magnitude;
-		rootT += motionT;
-		if(true) { // ignore animator's root motion
-			rootQ = Quaternion.Inverse(motionQ) * rootQ;
-			rootT = Quaternion.Inverse(motionQ) * (rootT-motionT);
-		}
-		proxies[0].localRotation = rootQ;
-		proxies[0].localPosition = rootT;
-
+		(proxies[0].localPosition, proxies[0].localRotation) = HumanPoser.GetRootMotion(ref humanPose, animator);
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
 			var pos = Vector3.zero;
 			for(int j=0; j<3; j++)

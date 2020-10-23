@@ -87,23 +87,25 @@ public class BonePlayer {
 		}
 	}
 	private HumanPoseHandler poseHandler;
-	private HumanPose pose;
+	private HumanPose humanPose;
 	public void ApplyHumanPose() {
 		if(poseHandler == null) {
 			poseHandler = new HumanPoseHandler(skeleton.root.GetComponent<Animator>().avatar, skeleton.root);
-			poseHandler.GetHumanPose(ref pose);
-			// Debug.Log($"{pose.bodyPosition.y}");
+			poseHandler.GetHumanPose(ref humanPose);
 		}
-		CalcHumanPose(out pose.bodyPosition, out pose.bodyRotation, pose.muscles);
-		poseHandler.SetHumanPose(ref pose);
+		CalcHumanPose(ref humanPose);
+		poseHandler.SetHumanPose(ref humanPose);
 	}
 	public void ApplyTransform() {
 		for(int i=0; i<skeleton.bones.Length; i++)
 			if(skeleton.bones[i]) {
 				var axes = skeleton.axes[i];
-				if(i != (int)HumanBodyBones.Hips)
-					skeleton.bones[i].localRotation = axes.preQ * ShaderImpl.fromSwingTwist(axes.sign * boneSwingTwists[i])
+				if(i != (int)HumanBodyBones.Hips) {
+					var rot = axes.preQ * BoneAxes.SwingTwist(axes.sign * boneSwingTwists[i])
 												* Quaternion.Inverse(axes.postQ);
+					if(!skeleton.dummy[i]) // TODO: merge rotation
+						skeleton.bones[i].localRotation = rot;
+				}
 				else {
 					var rescale = hipsS / skeleton.scale;
 					skeleton.root.localScale = new Vector3(1,1,1) * rescale;
@@ -125,32 +127,18 @@ public class BonePlayer {
 		}
 	}
 
-	static readonly (int, Vector3)[] spreadRootQ = new[]{
-		((int)HumanBodyBones.Spine, new Vector3(21.04f, -29.166f, -29.166f)),
-		((int)HumanBodyBones.Chest, new Vector3(21.04f, -18.517f, -18.517f)),
-	};
-	void CalcHumanPose(out Vector3 rootT, out Quaternion rootQ, float[] muscles) {
-		Array.Clear(muscles, 0, muscles.Length);
+	private void CalcHumanPose(ref HumanPose pose) {
+		Array.Clear(pose.muscles, 0, pose.muscles.Length);
 		for(int i=0; i<HumanTrait.BoneCount; i++)
 			for(int j=0; j<3; j++) {
 				var (muscle, weight) = boneMuscles[i, j];
 				if(muscle >= 0)
-					muscles[muscle] += boneSwingTwists[i][j] * weight;
+					pose.muscles[muscle] += boneSwingTwists[i][j] * weight;
 			}
 		for(int i=0; i<HumanTrait.MuscleCount; i++)
-			muscles[i] /= muscles[i] >= 0 ? muscleLimits[i,1] : -muscleLimits[i,0];
-		
-		rootT = hipsT / hipsS;
-		rootQ = hipsQ;
-		foreach(var (i, scale) in spreadRootQ) { 
-			var axes = skeleton.axes[i];
-			var r = ShaderImpl.fromSwingTwist(axes.sign * new Vector3(
-				muscles[boneMuscles[i,0].Item1]*scale[0],
-				muscles[boneMuscles[i,1].Item1]*scale[1],
-				muscles[boneMuscles[i,2].Item1]*scale[2]));
-			var t = Quaternion.LookRotation(Vector3.right, Vector3.forward);
-			rootQ *= t * r * Quaternion.Inverse(t);
-		}
+			pose.muscles[i] /= pose.muscles[i] >= 0 ? muscleLimits[i,1] : -muscleLimits[i,0];
+
+		HumanPoser.SetHipsPositionRotation(ref pose, hipsT / hipsS, hipsQ);
 	}
 
 	public static readonly (int, float)[,] boneMuscles;

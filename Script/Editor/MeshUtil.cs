@@ -9,7 +9,7 @@ public class MeshUtil {
 		for(int i=0; i<bones.Length; i++) {
 			var j = -1;
 			for(var b = bones[i]; b != null && j < 0; b = b.parent)
-				j = Array.IndexOf(targetBones, b);
+				j = Array.LastIndexOf(targetBones, b);
 			if(j < 0)
 				j = rootBone;
 			targetBindposes[i] = (j, (targetBones[j] ? targetBones[j].worldToLocalMatrix : Matrix4x4.identity) *
@@ -34,8 +34,7 @@ public class MeshUtil {
 			var sorted = Enumerable.Range(0, wbs.Length).OrderBy(i => -wbs[i][3,3]).ToArray();
 			var ratio  = sorted.Take(quality).Sum(i => wbs[i][3,3]) / sorted.Sum(i => wbs[i][3,3]);
 			if(Mathf.Abs(ratio-1) > 1e-5f)
-				Debug.LogWarning($@"vertex is skinned with >{quality} bones: skip {string.Join(", ",
-					sorted.Skip(quality).TakeWhile(i => wbs[i][3,3]>1e-5).Select(i=>targetBones[i].name))}");
+				Debug.LogWarning($@"vertex is skinned with {sorted.Count(i => wbs[i][3,3]>1e-5)} bones: truncated");
 
 			for(int i=0; i<quality; i++) {
 				var b = sorted[i];

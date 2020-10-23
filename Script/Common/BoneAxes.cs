@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace ShaderMotion {
 public struct BoneAxes {
 	public Quaternion preQ, postQ; // bone.localRotation * postQ == preQ * SwingTwist(sign * angles)
-	public float sign, signX;
+	public float sign, length; // axisEnd == bone.position + bone.rotation * postQ * Vector3.right * length
 	public Vector3 min, max; // NaN == axis unavailable (Jaw|Toes|Eye|Proximal|Intermediate|Distal)
 	public BoneAxes(Transform bone, Vector3 dir=new Vector3()) {
 		min = float.NegativeInfinity * new Vector3(1,1,1);
@@ -22,7 +22,7 @@ public struct BoneAxes {
 		postQ = Quaternion.FromToRotation(Vector3.right, dir);
 		preQ  = bone.localRotation * postQ;
 		sign  = 1;
-		signX = 1;
+		length = 0; // TODO
 	}
 	public BoneAxes(Avatar avatar, HumanBodyBones humanBone) {
 		min = (exposeHiddenAxes.Contains(humanBone) ? float.NegativeInfinity : float.NaN) * new Vector3(1,1,1);
@@ -34,26 +34,25 @@ public struct BoneAxes {
 			}
 		// bake non-uniform sign into uniform sign:
 		// SwingTwist(sign3 * angles) == det(sign3)flip(sign3) * SwingTwist(det(sign3) * angles) * det(sign3)flip(sign3)
-		var sign3 = GetAxesSign(avatar, (int)humanBone);
+		var sign3 = GetCompleteLimitSign(avatar, (int)humanBone);
 		var signQ = Quaternion.LookRotation(new Vector3(0, 0, sign3.x*sign3.y), new Vector3(0, sign3.x*sign3.z, 0));
-		preQ  = (Quaternion)GetPreRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
-		postQ = (Quaternion)GetPostRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
-		sign  = sign3.x*sign3.y*sign3.z;
-		signX = sign3.y*sign3.z;
-		// var zyRoll = (Quaternion)GetZYRoll.Invoke(avatar, new object[]{humanBone, Vector3.zero});
-		// Debug.Assert(zyRoll == Quaternion.identity, $"{humanBone} has non-trivial zyRoll: {zyRoll}");
-	}
-	public void ClearPreQ() {
-		// use rootQ instead of SwingTwist: bone.rotation * postQ == rootQ * preQ
-		postQ *= Quaternion.Inverse(preQ);
-		preQ   = Quaternion.identity;
-		sign   = 1;
+		preQ   = (Quaternion)GetPreRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
+		postQ  = (Quaternion)GetPostRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
+		length = (float)GetAxisLength.Invoke(avatar, new object[]{humanBone}) * (sign3.y*sign3.z);
+		sign   = sign3.x*sign3.y*sign3.z;
+		// zyroll is not implemented
+		var zyRoll = (Quaternion)GetZYRoll.Invoke(avatar, new object[]{humanBone, Vector3.zero});
+		Debug.Assert(zyRoll == Quaternion.identity, $"{humanBone} has non-trivial zyRoll: {zyRoll}");
 	}
 
-	static Vector3 GetAxesSign(Avatar avatar, int humanBone) {
+	public static Quaternion SwingTwist(Vector3 degree) {
+		var degreeYZ = new Vector3(0, degree.y, degree.z);
+		return Quaternion.AngleAxis(degreeYZ.magnitude, degreeYZ.normalized)
+				* Quaternion.AngleAxis(degree.x, new Vector3(1,0,0));
+	}
+	private static Vector3 GetCompleteLimitSign(Avatar avatar, int humanBone) {
 		var par  = (Vector3)GetLimitSign.Invoke(avatar, new object[]{parentAxes[humanBone]});
 		var sign = (Vector3)GetLimitSign.Invoke(avatar, new object[]{humanBone});
-		// copy missing components from parent
 		for(int i=0; i<3; i++)
 			if(MuscleFromBone[humanBone, i] < 0)
 				sign[i] = par[i];
@@ -66,7 +65,8 @@ public struct BoneAxes {
 	static readonly MethodInfo GetPreRotation  = typeof(Avatar).GetMethod("GetPreRotation", BindingFlags.NonPublic | BindingFlags.Instance);
 	static readonly MethodInfo GetPostRotation = typeof(Avatar).GetMethod("GetPostRotation", BindingFlags.NonPublic | BindingFlags.Instance);
 	static readonly MethodInfo GetLimitSign    = typeof(Avatar).GetMethod("GetLimitSign", BindingFlags.NonPublic | BindingFlags.Instance);
-	// static readonly MethodInfo GetZYRoll       = typeof(Avatar).GetMethod("GetZYRoll", BindingFlags.NonPublic | BindingFlags.Instance);
+	static readonly MethodInfo GetZYRoll       = typeof(Avatar).GetMethod("GetZYRoll", BindingFlags.NonPublic | BindingFlags.Instance);
+	static readonly MethodInfo GetAxisLength   = typeof(Avatar).GetMethod("GetAxisLength", BindingFlags.NonPublic | BindingFlags.Instance);
 	static readonly int[,] MuscleFromBone = new int[HumanTrait.BoneCount, 3];
 	static readonly int[]  parentAxes = new int[HumanTrait.BoneCount];
 	static readonly HashSet<HumanBodyBones> exposeHiddenAxes = new HashSet<HumanBodyBones>{
