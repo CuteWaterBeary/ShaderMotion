@@ -170,7 +170,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 94079718}
-  m_Text: '3b. A bone player
+  m_Text: '3b. A motion player
 
     animates the bones
 
@@ -178,9 +178,7 @@ TextMesh:
 
     created by adding
 
-    a custom component
-
-    called MotionPlayer'
+    a custom component'
   m_OffsetZ: 0
   m_CharacterSize: 0.1
   m_LineSpacing: 1
@@ -1073,9 +1071,9 @@ TextMesh:
 
     Disable Part 2 to take effect.
 
-    Avatar will be rescaled to
+    Avatar will be rescaled to match
 
-    match the scale in the video'
+    the hips height in the video'
   m_OffsetZ: 0
   m_CharacterSize: 0.1
   m_LineSpacing: 1

@@ -92,7 +92,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 		rot.c1 = matY;
 		rot.c2 = matZ;
 		rot.c0 = cross(rot.c1, rot.c2);
-		data = toSwingTwist(rot)[chan] * sign / PI;
+		data = toSwingTwist(rot)[chan] * sign / UNITY_PI;
 	} else {
 		matY *= min(1, scale);
 		matZ *= min(1, rcp(scale));

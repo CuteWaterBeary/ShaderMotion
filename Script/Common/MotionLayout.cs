@@ -1,7 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Array = System.Array;
-using Path = System.IO.Path;
 using UnityEngine;
 using System.Text.RegularExpressions;
 

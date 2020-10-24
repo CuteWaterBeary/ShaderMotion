@@ -129,7 +129,7 @@ void SkinVertex(VertInputPlayer i, out VertInputSkinned o, uint layer, bool high
 			mat = mulEulerYXZ(mat, data1.xyz);
 			{
 				uint idx = data0.w, maskSign = data1.w;
-				float3 swingTwist = PI * sampleSnorm3(idx, st);
+				float3 swingTwist = UNITY_PI * sampleSnorm3(idx, st);
 				swingTwist = !(maskSign & uint3(1,2,4)) ? 0 : maskSign & 8 ? -swingTwist : swingTwist;
 				mat = mul(mat, fromSwingTwist(swingTwist));
 			}

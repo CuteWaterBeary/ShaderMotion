@@ -1,4 +1,3 @@
-static float PI = 3.14159265;
 #define c0 _11_21_31
 #define c1 _12_22_32
 #define c2 _13_23_33

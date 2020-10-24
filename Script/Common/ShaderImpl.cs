@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Unity.Collections;
 
 namespace ShaderMotion {
 public class ShaderImpl {
