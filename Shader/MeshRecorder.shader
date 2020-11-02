@@ -6,7 +6,7 @@ Properties {
 SubShader {
 	Tags { "Queue"="Overlay" "RenderType"="Overlay" "PreviewType"="Plane" }
 	Pass {
-		Tags { "LightMode"="Vertex" }
+		Tags { "LightMode"="ForwardBase" }
 		Cull Off
 		ZTest Always ZWrite Off
 CGPROGRAM
@@ -14,6 +14,7 @@ CGPROGRAM
 #pragma vertex vert
 #pragma fragment frag
 #pragma geometry geom
+#pragma shader_feature _REQUIRE_UV2
 #include <UnityCG.cginc>
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
@@ -60,13 +61,15 @@ void vert(VertInput i, out GeomInput o) {
 void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	UNITY_SETUP_INSTANCE_ID(i[0]);
 
-	#if defined(USING_STEREO_MATRICES)
-		return; // no VR
+	#if !defined(_REQUIRE_UV2)
+		#if defined(USING_STEREO_MATRICES)
+			return; // hide in VR
+		#endif
+		if(_AutoHide && _ProjectionParams.z != 0)
+			return; // require farClip == 0 when autohide is on 
+		if(determinant((float3x3)UNITY_MATRIX_V) > 0)
+			return; // hide in mirror
 	#endif
-	if(_AutoHide && !(unity_OrthoParams.w != 0 && _ProjectionParams.z == 0))
-		return; // require ortho camera with far == 0 when autohide is on 
-	if(determinant((float3x3)UNITY_MATRIX_V) > 0)
-		return; // no mirror
 
 	uint  slot = i[0].tangent.w;
 	uint  chan = i[1].tangent.w;
@@ -118,7 +121,11 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 	float2 screenSize = _ScreenParams.xy/2;
 	rect = round(rect * screenSize.xyxy) / screenSize.xyxy;
 	rect = rect*2-1;
-	rect.yw *= _ProjectionParams.x;
+	#if !defined(_REQUIRE_UV2)
+		rect.yw *= _ProjectionParams.x;
+	#elif UNITY_UV_STARTS_AT_TOP
+		rect.yw *= -1;
+	#endif
 
 	float4 uv = float4(0,0,1,1);
 	o.uv = uv.xy;

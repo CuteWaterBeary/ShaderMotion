@@ -1,6 +1,6 @@
 Shader "Motion/VideoDecoder" {
 Properties {
-	_Motion ("Motion", 2D) = "black" {}
+	_MainTex ("Motion", 2D) = "black" {} // [MainTexture] isn't working well so we have to rename
 }
 SubShader {
 	Pass {
@@ -18,14 +18,14 @@ CGPROGRAM
 #include "Codec.hlsl"
 #include "VideoLayout.hlsl"
 
-Texture2D _Motion;
-float4 _Motion_ST;
+Texture2D _MainTex;
+float4 _MainTex_ST;
 float sampleSnorm(float2 uv) {
 	float4 rect = GetTileRect(uv);
 	if(uv.x > 0.5)
 		rect.xz = rect.zx;
 	ColorTile c;
-	SampleTile(c, _Motion, rect * _Motion_ST.xyxy + _Motion_ST.zwzw);
+	SampleTile(c, _MainTex, rect * _MainTex_ST.xyxy + _MainTex_ST.zwzw);
 	return DecodeVideoSnorm(c);
 }
 struct FragInput {
