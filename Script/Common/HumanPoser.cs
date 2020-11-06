@@ -27,7 +27,7 @@ public class HumanPoser {
 	public static void SetHipsPositionRotation(ref HumanPose pose, Vector3 hipsT, Quaternion hipsQ) {
 		var spreadQ = Quaternion.identity;
 		foreach(var (i, scale) in spreadMassQ)
-			spreadQ *= BoneAxes.SwingTwist(new Vector3(
+			spreadQ *= HumanAxes.SwingTwist(new Vector3(
 				pose.muscles[HumanTrait.MuscleFromBone(i, 0)]*scale[0],
 				pose.muscles[HumanTrait.MuscleFromBone(i, 1)]*scale[1],
 				pose.muscles[HumanTrait.MuscleFromBone(i, 2)]*scale[2]));

@@ -52,7 +52,7 @@ public class MotionDecoder {
 
 			if(layout.channels[i][0] < 3) {
 				var swingTwist = vec[0] * 180;
-				motions[i] = (swingTwist, BoneAxes.SwingTwist(skeleton.axes[i].sign * swingTwist), float.NaN);
+				motions[i] = (swingTwist, HumanAxes.SwingTwist(skeleton.axes[i].sign * swingTwist), float.NaN);
 			} else {
 				for(int j=0; j<3; j++)
 					vec[2][j] = ShaderImpl.DecodeVideoFloat(vec[1][j], vec[2][j], tilePow);

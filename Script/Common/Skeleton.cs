@@ -9,20 +9,20 @@ using UnityEditor;
 namespace ShaderMotion {
 public class Skeleton {
 	public readonly Transform[] bones;
-	public readonly BoneAxes[] axes;
+	public readonly HumanAxes[] axes;
 	public readonly bool[] dummy;
 	public readonly int[] parents;
 	public readonly Transform root;
-	public readonly float scale;
+	public readonly float humanScale;
 	public Skeleton(Animator animator, Transform[] genericBones=null) {
+		humanScale = GetSkeletonPoseHipsHeight(animator); // animator.humanScale causes floating feet
 		root  = animator.transform;
-		scale = GetSkeletonPoseHipsHeight(animator); // animator.humanScale causes floating feet
 		bones = Enumerable.Range(0, HumanTrait.BoneCount)
 			.Select(i => animator.GetBoneTransform((HumanBodyBones)i))
 			.Concat(genericBones ?? Enumerable.Empty<Transform>()).ToArray();
 		axes  = Enumerable.Range(0, HumanTrait.BoneCount)
-			.Select(i => new BoneAxes(animator.avatar, (HumanBodyBones)i))
-			.Concat((genericBones ?? Enumerable.Empty<Transform>()).Select(t => new BoneAxes(t))).ToArray();
+			.Select(i => new HumanAxes(animator.avatar, (HumanBodyBones)i))
+			.Concat((genericBones ?? Enumerable.Empty<Transform>()).Select(t => new HumanAxes(t))).ToArray();
 		// add dummy human bones so that animation on missing UpperChest is handled correctly
 		dummy = new bool[bones.Length];
 		foreach(var (i, p) in dummyHumanBones)

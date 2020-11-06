@@ -21,7 +21,7 @@ public class MotionLayout {
 				chan.AddRange(Enumerable.Range(3, 12));
 			else
 				for(int j=0; j<3; j++)
-					if(!float.IsNaN(skeleton.axes[i].max[j]))
+					if(!float.IsNaN(skeleton.axes[i].limit.max[j]))
 						chan.Add(j);
 			channels[i] = chan.ToArray();
 		}
@@ -108,28 +108,27 @@ public class MotionLayout {
 	};
 
 	public void AddEncoderVisemeShapes(Mesh mesh=null, int baseIndex=80) {
-		foreach(var vc in visemeTable)
-			for(int i=0; i<3; i++) {
-				var name = "v_"+vc.Item1;
-				shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=vc.Item2[i]});
-			}
+		AddVisemeShapes(mesh, baseIndex, false);
 	}
 	public void AddDecoderVisemeShapes(Mesh mesh=null, int baseIndex=80) {
+		AddVisemeShapes(mesh, baseIndex, true);
+	}
+	void AddVisemeShapes(Mesh mesh=null, int baseIndex=80, bool primary=false) {
 		var shapeNames = new List<string>();
 		if(mesh)
 			for(int i=0; i<mesh.blendShapeCount; i++)
 				shapeNames.Add(mesh.GetBlendShapeName(i));
 
-		foreach(var vc in visemeTable)
+		foreach(var viseme in visemeTable)
 			for(int i=0; i<3; i++)
-				if(vc.Item2[i] == 1) {
-					var name = searchVisemeName(shapeNames, vc.Item1);
-					shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=vc.Item2[i]});
+				if(!primary || viseme.weights[i] == 1) {
+					var name = searchVisemeName(shapeNames, viseme.name);
+					shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=viseme.weights[i]});
 				}
 	}
 	// express visemes as weighted sums of A/CH/O, widely used by CATS
 	// https://github.com/GiveMeAllYourCats/cats-blender-plugin/blob/master/tools/viseme.py#L102
-	static (string, Vector3)[] visemeTable = new (string, Vector3)[]{
+	static (string name, Vector3 weights)[] visemeTable = new (string, Vector3)[]{
 		("sil", Vector3.zero),
 		("PP", new Vector3(0.0f, 0.0f, 0.0f)),
 		("FF", new Vector3(0.2f, 0.4f, 0.0f)),

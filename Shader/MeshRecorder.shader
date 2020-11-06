@@ -58,7 +58,7 @@ void vert(VertInput i, out GeomInput o) {
 	o = i;
 }
 [maxvertexcount(4)]
-void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
+void geom(line GeomInput i[2], inout TriangleStream<FragInput> stream) {
 	UNITY_SETUP_INSTANCE_ID(i[0]);
 
 	#if !defined(_REQUIRE_UV2)
@@ -71,19 +71,21 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 			return; // hide in mirror
 	#endif
 
-	uint  slot = i[0].tangent.w;
-	uint  chan = i[1].tangent.w;
-	float sign = i[2].tangent.w;
+	bool  background = i[0].uv.x < 0;
+	uint  slot = i[0].uv.x;
+	uint  chan = i[1].uv.x;
+	float sign = i[1].uv.y;
 
-	float3x3 mat0 = i[0].GetRotationScale();
 	float3x3 mat1 = i[1].GetRotationScale();
-	float3 pos  = i[1].GetPosition() - i[0].GetPosition();
+	float3 pos  = i[1].GetPosition();
 	float3 matY = mat1.c1;
 	float3 matZ = mat1.c2;
 	if(sign != 0) { // relative to mat0
+		float3x3 mat0 = i[0].GetRotationScale();
+		pos  -= i[0].GetPosition();
+		pos  = mul(transpose(mat0), pos)  / dot(mat0.c1, mat0.c1);
 		matY = mul(transpose(mat0), matY) / dot(mat0.c1, mat0.c1);
 		matZ = mul(transpose(mat0), matZ) / dot(mat0.c1, mat0.c1);
-		pos  = mul(transpose(mat0), pos)  / dot(mat0.c1, mat0.c1);
 	}
 	float scale = length(matY);
 	matY = normalize(matY);
@@ -105,8 +107,7 @@ void geom(triangle GeomInput i[3], inout TriangleStream<FragInput> stream) {
 
 	uint layer = _Layer;
 	float4 rect = GetTileRect(slot);
-	// background quad
-	if(i[0].tangent.w < 0) { 
+	if(background) { 
 		rect = layerRect;
 		data = 0;
 	}

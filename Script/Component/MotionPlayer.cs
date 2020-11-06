@@ -17,6 +17,8 @@ public class MotionPlayer : MonoBehaviour  {
 	private Skeleton skeleton;
 	[System.NonSerialized]
 	private MotionDecoder decoder;
+	[System.NonSerialized]
+	private Vector3 baseLocalScale;
 	
 	void OnEnable() {
 		var animator = this.animator ? this.animator : GetComponent<Animator>(); 
@@ -26,6 +28,7 @@ public class MotionPlayer : MonoBehaviour  {
 		var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout);
 		layout.AddDecoderVisemeShapes(shapeRenderer?.sharedMesh);
 		decoder = new MotionDecoder(skeleton, layout);
+		baseLocalScale = new Vector3(1,1,1) / skeleton.humanScale;
 	}
 	void OnDisable() {
 		skeleton = null;
@@ -46,9 +49,6 @@ public class MotionPlayer : MonoBehaviour  {
 	private HumanPoseHandler poseHandler;
 	private HumanPose humanPose;
 	private Vector3[] swingTwists;
-	void ApplyScale() {
-		skeleton.root.localScale = decoder.motions[0].s / skeleton.scale * new Vector3(1,1,1);
-	}
 	void ApplyHumanPose() {
 		if(poseHandler == null) {
 			poseHandler = new HumanPoseHandler(skeleton.root.GetComponent<Animator>().avatar, skeleton.root);
@@ -61,10 +61,10 @@ public class MotionPlayer : MonoBehaviour  {
 		HumanPoser.SetBoneSwingTwists(ref humanPose, swingTwists);
 		HumanPoser.SetHipsPositionRotation(ref humanPose, motions[0].t / motions[0].s, motions[0].q);
 		poseHandler.SetHumanPose(ref humanPose);
-		ApplyScale();
+		skeleton.root.localScale = decoder.motions[0].s * baseLocalScale;
 	}
 	void ApplyTransform() {
-		ApplyScale();
+		skeleton.root.localScale = decoder.motions[0].s * baseLocalScale;
 		skeleton.bones[0].position = skeleton.root.TransformPoint(decoder.motions[0].t / skeleton.root.localScale.y);
 		for(int i=0; i<skeleton.bones.Length; i++)
 			if(skeleton.bones[i]) {

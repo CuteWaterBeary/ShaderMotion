@@ -33,7 +33,7 @@ public class MeshPlayer {
 				Quaternion rot;
 				if(p < 0) {
 					rot = Quaternion.identity;
-					pos = new Vector3(0, skel.scale, 0);
+					pos = new Vector3(0, skel.humanScale, 0);
 				} else if(skel.bones[p] == skel.bones[b]) {
 					rot = Quaternion.Inverse(skel.axes[p].preQ) * skel.axes[b].preQ;
 					pos = Vector3.zero;
@@ -232,7 +232,7 @@ class MeshPlayerEditor {
 		var animator = smr.gameObject.GetComponentInParent<Animator>();
 		var player = MeshPlayer.CreatePlayer(animator.name + ".Player", animator.transform.parent, animator, smrs,
 						MeshPlayer.CreatePlayerPath(animator));
-		Selection.activeGameObject = player.gameObject;
+		EditorGUIUtility.PingObject(player);
 	}
 }
 }
