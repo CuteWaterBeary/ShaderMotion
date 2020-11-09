@@ -49,7 +49,7 @@ public class MeshRecorder {
 				* sk.bones[i].localToWorldMatrix).lossyScale) * bindposes[boneIdx[i]]).inverse
 				* Matrix4x4.Rotate(sk.axes[i].postQ);
 
-			var preM  = p < 0 ? Matrix4x4.identity : (Matrix4x4.Scale((sk.root.worldToLocalMatrix
+			var preM  = p < 0 ? postM : (Matrix4x4.Scale((sk.root.worldToLocalMatrix
 				* sk.bones[p].localToWorldMatrix).lossyScale) * bindposes[boneIdx[p]]).inverse
 				* Matrix4x4.Rotate(Quaternion.Inverse(sk.bones[p].rotation) * sk.bones[i].parent.rotation
 				* sk.axes[i].preQ);
@@ -60,7 +60,7 @@ public class MeshRecorder {
 				normals. Add(sk.humanScale * preM.GetColumn(1));
 				tangents.Add(sk.humanScale * preM.GetColumn(2));
 				uvs     .Add(new Vector2(slot, 0));
-				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[p >= 0 ? p : i], weight0=1});
+				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[p < 0 ? i : p], weight0=1});
 
 				vertices.Add(postM.GetColumn(3));
 				normals. Add(sk.humanScale * postM.GetColumn(1));
@@ -176,21 +176,19 @@ public class MeshRecorder {
 			recorder = go.GetComponent<SkinnedMeshRenderer>();
 			recorder.rootBone = recorder.transform;
 			recorder.sharedMesh = mesh;
+			recorder.sharedMaterials = new Material[]{Resources.Load<Material>("MeshRecorder")};
 		}
 		{
 			var skeleton = new Skeleton(animator);
 			var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout);
 			layout.AddEncoderVisemeShapes(smr?.sharedMesh);
-			var bones = CreateRecorderMesh(recorder.sharedMesh, skeleton, layout, (smr?.sharedMesh, smr?.bones));
-			var materials = (smr?.sharedMaterials ?? new Material[0]) .Append(Resources.Load<Material>("MeshRecorder")).ToArray();
-			recorder.bones = bones;
-			if(recorder.sharedMaterials.Length != materials.Length)
-				recorder.sharedMaterials = materials;
 
-			AssetDatabase.SaveAssets();
-
+			recorder.bones = CreateRecorderMesh(recorder.sharedMesh, skeleton, layout, (smr?.sharedMesh, smr?.bones));
+			recorder.sharedMaterials = (smr?.sharedMaterials ?? new Material[0]).Append(
+				recorder.sharedMaterials.LastOrDefault()).ToArray();
 			recorder.localBounds = recorder.sharedMesh.bounds;
 			recorder.transform.localScale = new Vector3(1,1,1);
+			AssetDatabase.SaveAssets();
 		}
 		return recorder;
 	}
