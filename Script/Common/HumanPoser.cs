@@ -24,7 +24,7 @@ public class HumanPoser {
 				massT * animator.humanScale - preT))));
 		return (massT / animator.humanScale, massQ);
 	}
-	public static void SetHipsPositionRotation(ref HumanPose pose, Vector3 hipsT, Quaternion hipsQ) {
+	public static void SetHipsPositionRotation(ref HumanPose pose, Vector3 hipsT, Quaternion hipsQ, float humanScale) {
 		var spreadQ = Quaternion.identity;
 		foreach(var (i, scale) in spreadMassQ)
 			spreadQ *= HumanAxes.SwingTwist(new Vector3(
@@ -32,7 +32,7 @@ public class HumanPoser {
 				pose.muscles[HumanTrait.MuscleFromBone(i, 1)]*scale[1],
 				pose.muscles[HumanTrait.MuscleFromBone(i, 2)]*scale[2]));
 		var t = Quaternion.LookRotation(Vector3.right, Vector3.forward);
-		pose.bodyPosition = hipsT;
+		pose.bodyPosition = hipsT / humanScale;
 		pose.bodyRotation = hipsQ * (t * spreadQ * Quaternion.Inverse(t));
 	}
 	public static void SetBoneSwingTwists(ref HumanPose pose, Vector3[] swingTwists) {

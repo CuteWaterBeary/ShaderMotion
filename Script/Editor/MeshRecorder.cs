@@ -7,7 +7,7 @@ using UnityEditor;
 
 namespace ShaderMotion {
 public class MeshRecorder {
-	public static Transform[] CreateRecorderMesh(Mesh mesh, Skeleton sk, MotionLayout layout, (Mesh,Transform[]) source) {
+	public static Transform[] CreateRecorderMesh(Mesh mesh, Skeleton sk, MotionLayout layout, (Mesh,Transform[]) source, bool lineMesh=false) {
 		var (srcMesh, srcBones) = source;
 
 		var boneIdx   = new int[sk.bones.Length];
@@ -45,51 +45,54 @@ public class MeshRecorder {
 			while(p >= 0 && sk.dummy[p])
 				p = sk.parents[p];
 
-			var postM = (Matrix4x4.Scale((sk.root.worldToLocalMatrix
-				* sk.bones[i].localToWorldMatrix).lossyScale) * bindposes[boneIdx[i]]).inverse
+			var mat1 = (Matrix4x4.Scale((sk.root.worldToLocalMatrix
+				* sk.bones[i].localToWorldMatrix).lossyScale/sk.humanScale) * bindposes[boneIdx[i]]).inverse
 				* Matrix4x4.Rotate(sk.axes[i].postQ);
 
-			var preM  = p < 0 ? postM : (Matrix4x4.Scale((sk.root.worldToLocalMatrix
-				* sk.bones[p].localToWorldMatrix).lossyScale) * bindposes[boneIdx[p]]).inverse
+			var mat0 = p < 0 ? mat1 : (Matrix4x4.Scale((sk.root.worldToLocalMatrix
+				* sk.bones[p].localToWorldMatrix).lossyScale/sk.humanScale) * bindposes[boneIdx[p]]).inverse
 				* Matrix4x4.Rotate(Quaternion.Inverse(sk.bones[p].rotation) * sk.bones[i].parent.rotation
-				* sk.axes[i].preQ);
+									* sk.axes[i].preQ);
 
 			var slot = layout.baseIndices[i];
 			foreach(var chan in layout.channels[i]) {
-				vertices.Add(preM.GetColumn(3));
-				normals. Add(sk.humanScale * preM.GetColumn(1));
-				tangents.Add(sk.humanScale * preM.GetColumn(2));
-				uvs     .Add(new Vector2(slot, 0));
+				vertices.Add(mat0.GetColumn(3));
+				normals. Add(mat0.GetColumn(1));
+				tangents.Add(mat0.GetColumn(2));
+				uvs     .Add(new Vector2(slot++, 0));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[p < 0 ? i : p], weight0=1});
 
-				vertices.Add(postM.GetColumn(3));
-				normals. Add(sk.humanScale * postM.GetColumn(1));
-				tangents.Add(sk.humanScale * postM.GetColumn(2));
+				vertices.Add(mat1.GetColumn(3));
+				normals. Add(mat1.GetColumn(1));
+				tangents.Add(mat1.GetColumn(2));
 				uvs     .Add(new Vector2(chan, p >= 0 ? sk.axes[i].sign : 0));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[i], weight0=1});
-
-				slot++;
 			}
 		}
 		var slotToVertex = new Dictionary<int, int>();
-		foreach(var slot in layout.shapeIndices.Select(si => si.index).Distinct()) {
-			int chan = 7, sign = 1;
-			var scale = sk.humanScale/1024;
-			var postM = Matrix4x4.identity;
-			slotToVertex[slot] = vertices.Count + 1;
+		{
+			int i = 0, chan = 7, sign = 1;
+			var mat1 = (Matrix4x4.Scale((sk.root.worldToLocalMatrix
+				* sk.bones[i].localToWorldMatrix).lossyScale/sk.humanScale) * bindposes[boneIdx[i]]).inverse
+				* Matrix4x4.Rotate(sk.axes[i].postQ);
 
-			vertices.Add(Vector3.zero);
-			normals. Add(scale * postM.GetColumn(1));
-			tangents.Add(scale * postM.GetColumn(2) + new Vector4(0,0,0, slot));
-			uvs     .Add(new Vector2(slot, 0));
-			boneWeights.Add(new BoneWeight{weight0=1});
+			foreach(var slot in layout.shapeIndices.Select(si => si.index).Distinct()) {
+				slotToVertex[slot] = vertices.Count + 1;
 
-			vertices.Add(Vector3.zero);
-			normals. Add(scale * postM.GetColumn(1));
-			tangents.Add(scale * postM.GetColumn(2) + new Vector4(0,0,0, chan));
-			uvs     .Add(new Vector2(chan, sign));
-			boneWeights.Add(new BoneWeight{weight0=1});
+				vertices.Add(mat1.GetColumn(3));
+				normals. Add(mat1.GetColumn(1));
+				tangents.Add(mat1.GetColumn(2));
+				uvs     .Add(new Vector2(slot, 0));
+				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[i], weight0=1});
+
+				vertices.Add(mat1.GetColumn(3));
+				normals. Add(mat1.GetColumn(1));
+				tangents.Add(mat1.GetColumn(2));
+				uvs     .Add(new Vector2(chan, sign));
+				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[i], weight0=1});
+			}
 		}
+		
 		// experimental: make dynamic bounds encapsulate view position
 		var viewpos = sk.root.Find("viewpos");
 		if(viewpos) {
@@ -114,9 +117,12 @@ public class MeshRecorder {
 		for(int i=0; i<mesh.subMeshCount-1; i++)
 			mesh.SetIndices(srcMesh.GetIndices(i, false), srcMesh.GetTopology(i),
 				i, false, (int)srcMesh.GetBaseVertex(i));
-		
-		mesh.SetIndices(Enumerable.Range(0, vertices.Count-baseVertex).ToArray(), MeshTopology.Lines,
-			mesh.subMeshCount-1, false, baseVertex);
+		if(lineMesh)
+			mesh.SetIndices(Enumerable.Range(0, vertices.Count-baseVertex).ToArray(),
+				MeshTopology.Lines, mesh.subMeshCount-1, false, baseVertex);
+		else
+			mesh.SetIndices(Enumerable.Range(0, (vertices.Count-baseVertex)/2*3).Select(i => i/3*2+i%3%2).ToArray(),
+				MeshTopology.Triangles, mesh.subMeshCount-1, false, baseVertex);
 
 		// bounds encapsulates mesh and bones and it's symmetric along Y-axis
 		var bounds = new Bounds();
@@ -153,7 +159,7 @@ public class MeshRecorder {
 		}
 		return bones.ToArray();
 	}
-	public static SkinnedMeshRenderer CreateRecorder(string name, Transform parent, Animator animator, SkinnedMeshRenderer smr, string path) {
+	public static SkinnedMeshRenderer CreateRecorder(string name, Transform parent, Animator animator, SkinnedMeshRenderer smr, string path, bool lineMesh=false) {
 		var recorder = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
 							?.GetComponent<SkinnedMeshRenderer>();
 		if(!recorder) {
@@ -183,11 +189,12 @@ public class MeshRecorder {
 			var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout);
 			layout.AddEncoderVisemeShapes(smr?.sharedMesh);
 
-			recorder.bones = CreateRecorderMesh(recorder.sharedMesh, skeleton, layout, (smr?.sharedMesh, smr?.bones));
+			recorder.bones = CreateRecorderMesh(recorder.sharedMesh, skeleton, layout,
+												(smr?.sharedMesh, smr?.bones), lineMesh:lineMesh);
 			recorder.sharedMaterials = (smr?.sharedMaterials ?? new Material[0]).Append(
 				recorder.sharedMaterials.LastOrDefault()).ToArray();
 			recorder.localBounds = recorder.sharedMesh.bounds;
-			recorder.transform.localScale = new Vector3(1,1,1);
+			recorder.transform.localScale = Vector3.one;
 			AssetDatabase.SaveAssets();
 		}
 		return recorder;
@@ -200,20 +207,22 @@ public class MeshRecorder {
 	}
 }
 class MeshRecorderEditor {
+	static void CreateRecorder(Animator animator, SkinnedMeshRenderer smr, bool lineMesh) {
+		EditorGUIUtility.PingObject(MeshRecorder.CreateRecorder("Recorder", animator.transform,
+			animator, smr, MeshRecorder.CreateRecorderPath(animator), lineMesh:lineMesh));
+	}
 	[MenuItem("CONTEXT/Animator/CreateMeshRecorder")]
-	static void CreateRecorder(MenuCommand command) {
-		var animator = (Animator)command.context;
-		var recorder = MeshRecorder.CreateRecorder("Recorder", animator.transform, animator, null,
-						MeshRecorder.CreateRecorderPath(animator));
-		EditorGUIUtility.PingObject(recorder);
+	static void CreateRecorderFromAnimator(MenuCommand command) {
+		CreateRecorder((Animator)command.context, null, false);
+	}
+	[MenuItem("CONTEXT/Animator/CreateMeshRecorder(Outline)")]
+	static void CreateRecorderFromAnimatorWithLine(MenuCommand command) {
+		CreateRecorder((Animator)command.context, null, true);
 	}
 	[MenuItem("CONTEXT/SkinnedMeshRenderer/CreateMeshRecorder")]
-	static void CreateRecorderSMR(MenuCommand command) {
+	static void CreateRecorderFromSkinnedMeshRenderer(MenuCommand command) {
 		var smr = (SkinnedMeshRenderer)command.context;
-		var animator = smr.gameObject.GetComponentInParent<Animator>();
-		var recorder = MeshRecorder.CreateRecorder("Recorder", animator.transform, animator, smr,
-						MeshRecorder.CreateRecorderPath(animator));
-		EditorGUIUtility.PingObject(recorder);
+		CreateRecorder(smr.gameObject.GetComponentInParent<Animator>(), smr, false);
 	}
 }
 }

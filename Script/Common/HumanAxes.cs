@@ -21,8 +21,8 @@ public struct HumanAxes {
 		postQ = Quaternion.FromToRotation(Vector3.right, dir);
 		preQ  = bone.localRotation * postQ;
 		limit = new HumanLimit{ // TODO
-			min = float.NegativeInfinity * new Vector3(1,1,1),
-			max = float.PositiveInfinity * new Vector3(1,1,1),
+			min = float.NegativeInfinity * Vector3.one,
+			max = float.PositiveInfinity * Vector3.one,
 		};
 	}
 	public HumanAxes(Avatar avatar, HumanBodyBones humanBone) {

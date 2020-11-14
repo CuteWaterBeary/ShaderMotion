@@ -63,7 +63,7 @@ public class MeshPlayer {
 		var uvSkin   = Array.ConvertAll(new int[quality], i=>Array.ConvertAll(new int[3], j=>new List<Vector4>()));
 		var bindPre  = skel.bones.Select((b,i) => !b ? Matrix4x4.identity :
 			Matrix4x4.TRS(skel.root.InverseTransformPoint(b.position),
-				Quaternion.Inverse(skel.root.rotation) * b.rotation * skel.axes[i].postQ, new Vector3(1,1,1)).inverse
+				Quaternion.Inverse(skel.root.rotation) * b.rotation * skel.axes[i].postQ, Vector3.one).inverse
 					* (skel.root.worldToLocalMatrix * b.localToWorldMatrix)).ToArray();
 
 		foreach(var (srcMesh, srcBones) in sources) {

@@ -28,7 +28,7 @@ public class MotionPlayer : MonoBehaviour  {
 		var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout);
 		layout.AddDecoderVisemeShapes(shapeRenderer?.sharedMesh);
 		decoder = new MotionDecoder(skeleton, layout);
-		baseLocalScale = new Vector3(1,1,1) / skeleton.humanScale;
+		baseLocalScale = Vector3.one / skeleton.humanScale;
 	}
 	void OnDisable() {
 		skeleton = null;
@@ -59,7 +59,7 @@ public class MotionPlayer : MonoBehaviour  {
 		for(int i=0; i<HumanTrait.BoneCount; i++)
 			swingTwists[i] = motions[i].t;
 		HumanPoser.SetBoneSwingTwists(ref humanPose, swingTwists);
-		HumanPoser.SetHipsPositionRotation(ref humanPose, motions[0].t / motions[0].s, motions[0].q);
+		HumanPoser.SetHipsPositionRotation(ref humanPose, motions[0].t, motions[0].q, motions[0].s);
 		poseHandler.SetHumanPose(ref humanPose);
 		skeleton.root.localScale = decoder.motions[0].s * baseLocalScale;
 	}

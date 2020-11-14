@@ -14,7 +14,7 @@ CGPROGRAM
 #pragma vertex vert
 #pragma fragment frag
 #pragma geometry geom
-#pragma shader_feature _REQUIRE_UV2
+#pragma shader_feature _REQUIRE_UV2 // used for grabpass output
 #include <UnityCG.cginc>
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
