@@ -1,13 +1,17 @@
+[Click here to play with the demo](https://lox9973.com/ShaderMotion/) (WebGL2 required)
+
 # ShaderMotion
 
-This project implements a shader-based human motion encoder/decoder in Unity 2018. The encoder takes one avatar and encodes approximated Unity muscle values to a texture. The motion decoder takes the texture and animates another avatar using the decoded muscle values. The encoder/decoder requires mesh data pre-generated in editor script, but the encoding/decoding process is completely done in shader.
+This project implements a shader-based human pose encoder/decoder in Unity 2018. The encoder takes an avatar model and encodes its (approximated) Unity muscle values to an image. The decoder takes an image and animates a (possibly different) avatar model with the muscle values encoded in the image. The encoder/decoder requires mesh data pre-generated in Unity editor script, but the encoding/decoding process is completely done in shader.
 
-This project is intended for streaming 3d motion in VRChat. The streamer uses an avatar with encoder in any world, and broadcasts their screen with encoded motion. The viewers can play the motion video in a map with video player, and view the streamer's motion through a decoder, which can be included in the map or even in the viewer's own avatar!
+This project starts as an attempt of streaming 3d motion smoothly from VRChat, inspired by [memex's "Omnipresence Live"](http://meme-x.jp/2020/05/omnipresencelive/). The streamer should use an avatar with encoder, and broadcast their screen with encoded motion to a live streaming platform like Twitch. The audience can watch the stream in any VRChat world with video player and motion decoder, and view a 3d avatar following the streamer's motion in the 2d video.
+
+The motion decoder is also ported to WebGL2 (link above) so that audience can watch in browser and even export streamer's move as Unity animation file!
 
 # Get Started
 
-Copy this project folder into Assets folder in your Unity project, and open the example scene.
+Copy this project folder into Assets folder in your Unity project, and open the example scene for instruction.
 
-Please read [Wiki](../../wikis/home) for further explanation. The following is an overview for the dev branch.
+Please read [Wiki](../../wikis/home) for technical details.
 
 ![Overview](../../wikis/uploads/5991285fe23b59df8140d30a19683614/GameView.png)
