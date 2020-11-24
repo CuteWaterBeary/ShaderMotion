@@ -7,12 +7,14 @@ using AsyncGPUReadbackRequest = UnityEngine.Rendering.AsyncGPUReadbackRequest;
 namespace ShaderMotion {
 public class MotionDecoder {
 	public readonly Skeleton skeleton;
+	public readonly Appearance appearance;
 	public readonly MotionLayout layout;
 	public readonly Dictionary<string, float> shapes;
 	public readonly (Vector3 t, Quaternion q, float s)[] motions;
-	public MotionDecoder(Skeleton skeleton, MotionLayout layout,
+	public MotionDecoder(Skeleton skeleton, Appearance appearance, MotionLayout layout,
 						int width=80, int height=45, int tileRadix=3, int tileLen=2) {
 		this.skeleton = skeleton;
+		this.appearance = appearance;
 		this.layout = layout;
 		this.shapes = new Dictionary<string, float>();
 		this.motions = new (Vector3,Quaternion,float)[skeleton.bones.Length];
@@ -44,32 +46,32 @@ public class MotionDecoder {
 		this.layer = layer;
 
 		var vec = new Vector3[5];
-		for(int i=0; i<skeleton.bones.Length; i++) {
+		for(int b=0; b<skeleton.bones.Length; b++) {
 			System.Array.Clear(vec, 0, vec.Length);
-			var idx = layout.baseIndices[i];
-			foreach(var j in layout.channels[i])
-				vec[j/3][j%3] = SampleTile(idx++);
+			foreach(var (axis, index) in layout.bones[b].Select((x,y) => (y,x))) if(index >= 0)
+				vec[axis/3][axis%3] = SampleTile(index);
 
-			if(layout.channels[i][0] < 3) {
+			if(layout.bones[b].Length <= 3) {
 				var swingTwist = vec[0] * 180;
-				motions[i] = (swingTwist, HumanAxes.SwingTwist(skeleton.axes[i].sign * swingTwist), float.NaN);
+				motions[b] = (swingTwist, HumanAxes.SwingTwist(skeleton.axes[b].sign * swingTwist), float.NaN);
 			} else {
 				for(int j=0; j<3; j++)
 					vec[2][j] = ShaderImpl.DecodeVideoFloat(vec[1][j], vec[2][j], tilePow);
 				var (rotY, rotZ) = ShaderImpl.orthogonalize(vec[3], vec[4]);
 				if(!(rotZ.magnitude > 0))
 					(rotY, rotZ) = (Vector3.up, Vector3.forward);
-				motions[i] = (vec[2] * PositionScale,
+				motions[b] = (vec[2] * PositionScale,
 					Quaternion.LookRotation(rotZ, rotY), rotY.magnitude / rotZ.magnitude);
 			}
 		}
 
 		shapes.Clear();
-		foreach(var si in layout.shapeIndices) {
-			float w;
-			shapes.TryGetValue(si.shape, out w);
-			shapes[si.shape] = w + SampleTile(si.index) * si.weight;
-		}
+		for(int e=0; e<appearance.exprShapes.Length; e++)
+			foreach(var s in appearance.exprShapes[e]) {
+				float wt;
+				shapes.TryGetValue(s.Key, out wt);
+				shapes[s.Key] = wt + SampleTile(layout.exprs[e]) * s.Value;
+			}
 	}
 }
 }

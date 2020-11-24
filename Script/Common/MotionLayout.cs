@@ -5,156 +5,102 @@ using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
 public class MotionLayout {
-	public struct ShapeIndex {
-		public string shape;
-		public int index;
-		public float weight;
-	}
-	public readonly int[][] channels;
-	public readonly int[]   baseIndices;
-	public readonly List<ShapeIndex> shapeIndices = new List<ShapeIndex>();
-	public MotionLayout(Skeleton skeleton, (int, HumanBodyBones[])[] humanLayout) {
-		channels = new int[skeleton.bones.Length][];
-		for(int i=0; i<skeleton.bones.Length; i++) {
-			var chan = new List<int>();
-			if(skeleton.bones[i] && skeleton.parents[i] < 0)
-				chan.AddRange(Enumerable.Range(3, 12));
-			else
-				for(int j=0; j<3; j++)
-					if(!float.IsNaN(skeleton.axes[i].limit.max[j]))
-						chan.Add(j);
-			channels[i] = chan.ToArray();
-		}
-		baseIndices = Enumerable.Repeat(-1, skeleton.bones.Length).ToArray();
-		foreach(var kv in humanLayout) {
-			var slot = kv.Item1;
-			foreach(var humanBone in kv.Item2) {
-				baseIndices[(int)humanBone] = slot;
-				slot += channels[(int)humanBone].Length;
+	public readonly int[][] bones;
+	public readonly int[] exprs;
+	public MotionLayout(Skeleton skeleton, (int, int, int)[] boneLayout, Appearance appr, (int,int)[] exprLayout) {
+		bones = new int[skeleton.bones.Length][];
+		int index = 0;
+		foreach(var (startIndex, length, bone) in boneLayout) {
+			index = startIndex >= 0 ? startIndex : index;
+			var endIndex = index + length;
+			if(length <= 3) {
+				bones[bone] = Enumerable.Repeat(-1, 3).ToArray();
+				for(int i=0; i<3; i++)
+					if(length == 3 || HumanTrait.MuscleFromBone(bone, i) >= 0)
+						bones[bone][i] = index++;
+			} else if(length == 12) {
+				bones[bone] = Enumerable.Repeat(-1, 3).Concat(Enumerable.Range(index, 12)).ToArray();
+				index += 12;
 			}
+			Debug.Assert(index == endIndex);
 		}
-		if(baseIndices.Any(i => i < 0))
-			Debug.LogWarning("some bones are not bound to slot");
+		exprs = Enumerable.Range(-1, appr.exprShapes.Length).ToArray();
+		foreach(var (startIndex, expr) in exprLayout)
+			exprs[expr] = startIndex;
 	}
-	public static (int, HumanBodyBones[])[] defaultHumanLayout = new []{
+
+	public static (int, int)[] defaultExprLayout = new []{
+		(80, 0),
+		(81, 1),
+		(82, 2),
+	};
+	public static (int, int, int)[] defaultHumanLayout = new []{
 		// roughly ordered by HumanTrait.GetBoneDefaultHierarchyMass
-		(0, new []{
-			// 0: spine
-			HumanBodyBones.Hips,
-			HumanBodyBones.Spine,
-			HumanBodyBones.Chest,
-			HumanBodyBones.UpperChest,
-			HumanBodyBones.Neck,
-			HumanBodyBones.Head,
-			// 27: legs
-			HumanBodyBones.LeftUpperLeg,
-			HumanBodyBones.RightUpperLeg,
-			HumanBodyBones.LeftLowerLeg,
-			HumanBodyBones.RightLowerLeg,
-			HumanBodyBones.LeftFoot,
-			HumanBodyBones.RightFoot,
-			// 45: arms
-			HumanBodyBones.LeftShoulder,
-			HumanBodyBones.RightShoulder,
-			HumanBodyBones.LeftUpperArm,
-			HumanBodyBones.RightUpperArm,
-			HumanBodyBones.LeftLowerArm,
-			HumanBodyBones.RightLowerArm,
-			HumanBodyBones.LeftHand,
-			HumanBodyBones.RightHand,
-			// 69: misc (toe > eye in mass)
-			HumanBodyBones.LeftToes,
-			HumanBodyBones.RightToes,
-			HumanBodyBones.LeftEye,
-			HumanBodyBones.RightEye,
-			HumanBodyBones.Jaw,
-			// 77
-		}),
-		(90, new []{
-			// 90: left-hand fingers
-			HumanBodyBones.LeftThumbProximal,
-			HumanBodyBones.LeftThumbIntermediate,
-			HumanBodyBones.LeftThumbDistal,
-			HumanBodyBones.LeftIndexProximal,
-			HumanBodyBones.LeftIndexIntermediate,
-			HumanBodyBones.LeftIndexDistal,
-			HumanBodyBones.LeftMiddleProximal,
-			HumanBodyBones.LeftMiddleIntermediate,
-			HumanBodyBones.LeftMiddleDistal,
-			HumanBodyBones.LeftRingProximal,
-			HumanBodyBones.LeftRingIntermediate,
-			HumanBodyBones.LeftRingDistal,
-			HumanBodyBones.LeftLittleProximal,
-			HumanBodyBones.LeftLittleIntermediate,
-			HumanBodyBones.LeftLittleDistal,
-			// 110: right-hand fingers
-			HumanBodyBones.RightThumbProximal,
-			HumanBodyBones.RightThumbIntermediate,
-			HumanBodyBones.RightThumbDistal,
-			HumanBodyBones.RightIndexProximal,
-			HumanBodyBones.RightIndexIntermediate,
-			HumanBodyBones.RightIndexDistal,
-			HumanBodyBones.RightMiddleProximal,
-			HumanBodyBones.RightMiddleIntermediate,
-			HumanBodyBones.RightMiddleDistal,
-			HumanBodyBones.RightRingProximal,
-			HumanBodyBones.RightRingIntermediate,
-			HumanBodyBones.RightRingDistal,
-			HumanBodyBones.RightLittleProximal,
-			HumanBodyBones.RightLittleIntermediate,
-			HumanBodyBones.RightLittleDistal,
-			// 130
-		}),
-	};
 
-	public void AddEncoderVisemeShapes(Mesh mesh=null, int baseIndex=80) {
-		AddVisemeShapes(mesh, baseIndex, false);
-	}
-	public void AddDecoderVisemeShapes(Mesh mesh=null, int baseIndex=80) {
-		AddVisemeShapes(mesh, baseIndex, true);
-	}
-	void AddVisemeShapes(Mesh mesh=null, int baseIndex=80, bool primary=false) {
-		var shapeNames = new List<string>();
-		if(mesh)
-			for(int i=0; i<mesh.blendShapeCount; i++)
-				shapeNames.Add(mesh.GetBlendShapeName(i));
+		(  0,12, (int)HumanBodyBones.Hips),
+		( -1, 3, (int)HumanBodyBones.Spine),
+		( -1, 3, (int)HumanBodyBones.Chest),
+		( -1, 3, (int)HumanBodyBones.UpperChest),
+		( -1, 3, (int)HumanBodyBones.Neck),
+		( -1, 3, (int)HumanBodyBones.Head),
 
-		foreach(var viseme in visemeTable)
-			for(int i=0; i<3; i++)
-				if(!primary || viseme.weights[i] == 1) {
-					var name = searchVisemeName(shapeNames, viseme.name);
-					shapeIndices.Add(new ShapeIndex{shape=name, index=baseIndex+i, weight=viseme.weights[i]});
-				}
-	}
-	// express visemes as weighted sums of A/CH/O, widely used by CATS
-	// https://github.com/GiveMeAllYourCats/cats-blender-plugin/blob/master/tools/viseme.py#L102
-	static (string name, Vector3 weights)[] visemeTable = new (string, Vector3)[]{
-		("sil", Vector3.zero),
-		("PP", new Vector3(0.0f, 0.0f, 0.0f)),
-		("FF", new Vector3(0.2f, 0.4f, 0.0f)),
-		("TH", new Vector3(0.4f, 0.0f, 0.15f)),
-		("DD", new Vector3(0.3f, 0.7f, 0.0f)),
-		("kk", new Vector3(0.7f, 0.4f, 0.0f)),
-		("CH", new Vector3(0.0f, 1.0f, 0.0f)),
-		("SS", new Vector3(0.0f, 0.8f, 0.0f)),
-		("nn", new Vector3(0.2f, 0.7f, 0.0f)),
-		("RR", new Vector3(0.0f, 0.5f, 0.3f)),
-		("aa", new Vector3(1.0f, 0.0f, 0.0f)),
-		("E",  new Vector3(0.0f, 0.7f, 0.3f)),
-		("ih", new Vector3(0.5f, 0.2f, 0.0f)),
-		("oh", new Vector3(0.2f, 0.0f, 0.8f)),
-		("ou", new Vector3(0.0f, 0.0f, 1.0f)),
+		( 27, 3, (int)HumanBodyBones.LeftUpperLeg),
+		( -1, 3, (int)HumanBodyBones.RightUpperLeg),
+		( -1, 3, (int)HumanBodyBones.LeftLowerLeg),
+		( -1, 3, (int)HumanBodyBones.RightLowerLeg),
+		( -1, 3, (int)HumanBodyBones.LeftFoot),
+		( -1, 3, (int)HumanBodyBones.RightFoot),
+
+		( 45, 3, (int)HumanBodyBones.LeftShoulder),
+		( -1, 3, (int)HumanBodyBones.RightShoulder),
+		( -1, 3, (int)HumanBodyBones.LeftUpperArm),
+		( -1, 3, (int)HumanBodyBones.RightUpperArm),
+		( -1, 3, (int)HumanBodyBones.LeftLowerArm),
+		( -1, 3, (int)HumanBodyBones.RightLowerArm),
+		( -1, 3, (int)HumanBodyBones.LeftHand),
+		( -1, 3, (int)HumanBodyBones.RightHand),
+
+		( 69, 1, (int)HumanBodyBones.LeftToes), // toe > eye in mass
+		( -1, 1, (int)HumanBodyBones.RightToes),
+		( -1, 2, (int)HumanBodyBones.LeftEye),
+		( -1, 2, (int)HumanBodyBones.RightEye),
+		( -1, 2, (int)HumanBodyBones.Jaw),
+
+		// 77 ~ 89: reserved
+
+		( 90, 2, (int)HumanBodyBones.LeftThumbProximal),
+		( -1, 1, (int)HumanBodyBones.LeftThumbIntermediate),
+		( -1, 1, (int)HumanBodyBones.LeftThumbDistal),
+		( -1, 2, (int)HumanBodyBones.LeftIndexProximal),
+		( -1, 1, (int)HumanBodyBones.LeftIndexIntermediate),
+		( -1, 1, (int)HumanBodyBones.LeftIndexDistal),
+		( -1, 2, (int)HumanBodyBones.LeftMiddleProximal),
+		( -1, 1, (int)HumanBodyBones.LeftMiddleIntermediate),
+		( -1, 1, (int)HumanBodyBones.LeftMiddleDistal),
+		( -1, 2, (int)HumanBodyBones.LeftRingProximal),
+		( -1, 1, (int)HumanBodyBones.LeftRingIntermediate),
+		( -1, 1, (int)HumanBodyBones.LeftRingDistal),
+		( -1, 2, (int)HumanBodyBones.LeftLittleProximal),
+		( -1, 1, (int)HumanBodyBones.LeftLittleIntermediate),
+		( -1, 1, (int)HumanBodyBones.LeftLittleDistal),
+
+		(110, 2, (int)HumanBodyBones.RightThumbProximal),
+		( -1, 1, (int)HumanBodyBones.RightThumbIntermediate),
+		( -1, 1, (int)HumanBodyBones.RightThumbDistal),
+		( -1, 2, (int)HumanBodyBones.RightIndexProximal),
+		( -1, 1, (int)HumanBodyBones.RightIndexIntermediate),
+		( -1, 1, (int)HumanBodyBones.RightIndexDistal),
+		( -1, 2, (int)HumanBodyBones.RightMiddleProximal),
+		( -1, 1, (int)HumanBodyBones.RightMiddleIntermediate),
+		( -1, 1, (int)HumanBodyBones.RightMiddleDistal),
+		( -1, 2, (int)HumanBodyBones.RightRingProximal),
+		( -1, 1, (int)HumanBodyBones.RightRingIntermediate),
+		( -1, 1, (int)HumanBodyBones.RightRingDistal),
+		( -1, 2, (int)HumanBodyBones.RightLittleProximal),
+		( -1, 1, (int)HumanBodyBones.RightLittleIntermediate),
+		( -1, 1, (int)HumanBodyBones.RightLittleDistal),
+
+		// 130 ~ 144: reserved
 	};
-	string searchVisemeName(IEnumerable<string> names, string viseme) {
-		var r = new Regex($@"\bv_{viseme}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		foreach(var name in names)
-			if(r.IsMatch(name))
-				return name;
-		r = new Regex($@"\b{viseme}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		foreach(var name in names)
-			if(r.IsMatch(name))
-				return name;
-		return $"v_{viseme}";
-    }
 }
 }

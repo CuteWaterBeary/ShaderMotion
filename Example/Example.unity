@@ -1943,7 +1943,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1533123932}
-  m_Mesh: {fileID: 4300000, guid: 9ace1841caf8df748a58203b9647ac91, type: 2}
+  m_Mesh: {fileID: 4300000, guid: 66477ede8cb6acd42a1fafe3bf5a2a9e, type: 2}
 --- !u!23 &1533123935
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1961,7 +1961,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: b6d8efa67da38574592b0f7329e61864, type: 2}
+  - {fileID: 2100000, guid: ccc28c0f4faf4b04db0dac220fc06179, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2308,7 +2308,7 @@ Transform:
   m_GameObject: {fileID: 1992796112}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.3726663, y: 0.3726663, z: 0.3726663}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 2096173461}
   m_RootOrder: 2
@@ -2377,45 +2377,22 @@ SkinnedMeshRenderer:
   - {fileID: 85198330}
   - {fileID: 1906547177}
   - {fileID: 2000927949}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
   - {fileID: 1415375661}
   - {fileID: 1597417859}
-  - {fileID: 0}
   - {fileID: 766676790}
   - {fileID: 713255464}
   - {fileID: 1187739371}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
   - {fileID: 271322395}
   - {fileID: 1214902288}
-  - {fileID: 0}
   - {fileID: 486365312}
   - {fileID: 1210010512}
   - {fileID: 1017647695}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
   - {fileID: 883124287}
   m_BlendShapeWeights: []
   m_RootBone: {fileID: 1992796113}
   m_AABB:
-    m_Center: {x: -0.0001943284, y: 1.0861566, z: 0.019833041}
-    m_Extent: {x: 1.3476263, y: 1.0861566, z: 1.3476263}
+    m_Center: {x: -0.00007241964, y: 0.40477398, z: 0.0073911063}
+    m_Extent: {x: 0.5022149, y: 0.40477398, z: 0.5022149}
   m_DirtyAABB: 0
 --- !u!4 &2000927949 stripped
 Transform:

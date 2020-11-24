@@ -11,16 +11,16 @@ public class MeshPlayer {
 	public static void CreatePlayerTex(Texture2D tex, Skeleton skel, MotionLayout layout) {
 		var boneData = new float[skel.bones.Length, 2];
 		var ancestors = new List<int>[skel.bones.Length];
-		for(int i=0; i<skel.bones.Length; i++) {
-			var slot = layout.baseIndices[i] - (layout.channels[i][0] - (layout.channels[i][0] < 3 ? 0 : 3));
-			var mask = layout.channels[i].Sum(j => 1<<j);
-			boneData[i, 0] = slot;
-			boneData[i, 1] = (mask & 7) + (skel.axes[i].sign > 0 ? 0 : 8);
+		for(int b=0; b<skel.bones.Length; b++) {
+			var idx0 = layout.bones[b].Select((idx, axis) => idx < 0 ? 0 : idx - (axis - (axis<3?0:3))).Max();
+			var mask = layout.bones[b].Select((idx, axis) => idx < 0 ? 0 : 1<<axis).Sum();
+			boneData[b, 0] = idx0;
+			boneData[b, 1] = (mask & 7) + (skel.axes[b].sign > 0 ? 0 : 8);
 
-			ancestors[i] = new List<int>();
-			for(int b=i; b>=0; b=skel.parents[b])
-				ancestors[i].Add(b);
-			ancestors[i].Reverse();
+			ancestors[b] = new List<int>();
+			for(int p=b; p>=0; p=skel.parents[p])
+				ancestors[b].Add(p);
+			ancestors[b].Reverse();
 		}
 
 		tex.Resize(ancestors.Max(l=>l.Count)*2+2, skel.bones.Length, TextureFormat.RGBAFloat, false);
@@ -44,8 +44,8 @@ public class MeshPlayer {
 														skel.bones[b].position - skel.bones[p].position);
 				}
 				var deg = rot.eulerAngles * Mathf.Deg2Rad;
-				colors[(i)*tex.width + j*2 + 0] = new Color(pos.x, pos.y, pos.z, boneData[b, 0]);
-				colors[(i)*tex.width + j*2 + 1] = new Color(deg.x, deg.y, deg.z, boneData[b, 1]);
+				colors[i*tex.width + j*2 + 0] = new Color(pos.x, pos.y, pos.z, boneData[b, 0]);
+				colors[i*tex.width + j*2 + 1] = new Color(deg.x, deg.y, deg.z, boneData[b, 1]);
 			}
 		tex.SetPixels(colors);
 		tex.Apply(false, false);
@@ -55,72 +55,60 @@ public class MeshPlayer {
 		tex.filterMode = FilterMode.Point;
 		tex.anisoLevel = 0;
 	}
-	public static void CreatePlayerMesh(Mesh mesh, Skeleton skel, MotionLayout layout, (Mesh,Transform[])[] sources, float motionRadius=2) {
+	public static void CreatePlayerMesh(Mesh mesh, Skeleton skel, Appearance appr, MotionLayout layout, (Mesh,Transform[])[] sources, float motionRadius=2) {
 		const int quality=2, shapeQuality=4;
 
 		var vertices = new List<Vector3>();
 		var uvShape  = new List<List<Vector4>>();
 		var uvSkin   = Array.ConvertAll(new int[quality], i=>Array.ConvertAll(new int[3], j=>new List<Vector4>()));
-		var bindPre  = skel.bones.Select((b,i) => !b ? Matrix4x4.identity :
-			Matrix4x4.TRS(skel.root.InverseTransformPoint(b.position),
-				Quaternion.Inverse(skel.root.rotation) * b.rotation * skel.axes[i].postQ, Vector3.one).inverse
-					* (skel.root.worldToLocalMatrix * b.localToWorldMatrix)).ToArray();
-
+		var bindPreM = skel.bones.Select((b,i) => !b ? Matrix4x4.identity :
+			Matrix4x4.Rotate(Quaternion.Inverse(b.rotation * skel.axes[i].postQ) * skel.root.rotation)
+				 * (skel.root.worldToLocalMatrix * b.localToWorldMatrix)).ToArray();
 		foreach(var (srcMesh, srcBones) in sources) {
 			var srcVertices = srcMesh.vertices;
 			var srcNormals  = srcMesh.normals;
 			var srcTangents = srcMesh.tangents;
 			var srcUVs      = srcMesh.uv;
 			MeshUtil.FixNormalTangents(srcMesh, ref srcNormals, ref srcTangents);
+			if(vertices != null)
+				vertices.AddRange(srcVertices.Select(
+					(skel.root.worldToLocalMatrix * srcBones[0].localToWorldMatrix * srcMesh.bindposes[0]).MultiplyPoint3x4));
 
 			var boneBinds = MeshUtil.RetargetWeightBindposes(
 				srcMesh.boneWeights, srcMesh.bindposes, srcBones, skel.bones, (int)HumanBodyBones.Hips, quality:quality);
 			for(int v=0; v<srcMesh.vertexCount; v++)
 				for(int i=0; i<quality; i++) {
 					var (bone, bind) = boneBinds[v, i];
-					var weight = bind[3,3];
-					bind = bindPre[bone] * bind;
-					// store vertex data in bone space
-					var vertex  = bind.MultiplyPoint3x4(srcVertices[v]);
-					var normal  = bind.MultiplyVector  (srcNormals[v]);
-					var tangent = bind.MultiplyVector  (srcTangents[v]);
-					uvSkin[i][0].Add(new Vector4(vertex.x,  vertex.y,  vertex.z,  weight/2 + bone));
-					uvSkin[i][1].Add(new Vector4(normal.x,  normal.y,  normal.z,  srcUVs[v][i]));
-					uvSkin[i][2].Add(new Vector4(tangent.x, tangent.y, tangent.z, srcTangents[v].w));
+					var vert = bindPreM[bone].MultiplyVector(bind.MultiplyPoint3x4(srcVertices[v]));
+					var norm = bindPreM[bone].MultiplyVector(bind.MultiplyVector  (srcNormals[v]));
+					var tang = bindPreM[bone].MultiplyVector(bind.MultiplyVector  (srcTangents[v]));
+					uvSkin[i][0].Add(new Vector4(vert.x, vert.y, vert.z, bind[3,3]/2 + bone));
+					uvSkin[i][1].Add(new Vector4(norm.x, norm.y, norm.z, srcUVs[v][i]));
+					uvSkin[i][2].Add(new Vector4(tang.x, tang.y, tang.z, srcTangents[v].w));
 				}
 
-			var objectToRoot = skel.root.worldToLocalMatrix * skel.bones[(int)HumanBodyBones.Hips].localToWorldMatrix
-							* srcMesh.bindposes[Array.IndexOf(srcBones, skel.bones[(int)HumanBodyBones.Hips])];
-			vertices.AddRange(srcMesh.vertices.Select(objectToRoot.MultiplyPoint3x4));
-
-			var srcDeltas = new Vector3[srcMesh.vertexCount];
-			var dstDeltas = new Vector3[srcMesh.vertexCount];
-			var offset = uvShape.Count;
-			uvShape.AddRange(Enumerable.Repeat((List<Vector4>)null, srcMesh.vertexCount));
-			foreach(var group in layout.shapeIndices.GroupBy(si => si.index)) {
-				Array.Clear(dstDeltas, 0, dstDeltas.Length);
-				foreach(var si in group) {
-					var shape = srcMesh.GetBlendShapeIndex(si.shape);
+			uvShape.AddRange(Enumerable.Repeat<List<Vector4>>(null, srcMesh.vertexCount));
+			var srcDV = new Vector3[srcMesh.vertexCount];
+			var dstDV = new Vector3[srcMesh.vertexCount];
+			var shapePreM = srcNormals.Select((norm, v) => new Matrix4x4(norm, (Vector3)srcTangents[v],
+				Vector3.Cross(norm.normalized, srcTangents[v]), new Vector4(0,0,0,1)).inverse).ToArray();
+			for(int e=0; e<appr.exprShapes.Length; e++) {
+				Array.Clear(dstDV, 0, dstDV.Length);
+				foreach(var s in appr.exprShapes[e]) {
+					var shape = srcMesh.GetBlendShapeIndex(s.Key);
 					if(shape >= 0) {
 						srcMesh.GetBlendShapeFrameVertices(shape,
-							srcMesh.GetBlendShapeFrameCount(shape)-1, srcDeltas, null, null);
+							srcMesh.GetBlendShapeFrameCount(shape)-1, srcDV, null, null);
 						for(int v=0; v<srcMesh.vertexCount; v++)
-							dstDeltas[v] += srcDeltas[v] * si.weight;
+							dstDV[v] += srcDV[v] * s.Value;
 					}
 				}
 				for(int v=0; v<srcMesh.vertexCount; v++)
-					if(dstDeltas[v] != Vector3.zero) {
-						var normal = srcNormals[v];
-						var tangent = (Vector3)srcTangents[v];
-						var bitangent = Vector3.Cross(normal.normalized, tangent);
-						var m = Matrix4x4.identity;
-						m.SetColumn(0, normal);
-						m.SetColumn(1, tangent);
-						m.SetColumn(2, bitangent);
-						// store delta in vertex (normal/tangent/bitangent) space
-						var delta = m.inverse.MultiplyVector(dstDeltas[v]);
-						uvShape[offset + v] = uvShape[offset + v] ?? new List<Vector4>();
-						uvShape[offset + v].Add(new Vector4(delta.x, delta.y, delta.z, group.Key));
+					if(dstDV[v] != Vector3.zero) {
+						var dv = shapePreM[v].MultiplyVector(dstDV[v]);
+						var k = uvShape.Count - srcMesh.vertexCount + v;
+						uvShape[k] = uvShape[k] ?? new List<Vector4>();
+						uvShape[k].Add(new Vector4(dv.x, dv.y, dv.z, layout.exprs[e]));
 					}
 			}
 		}
@@ -200,14 +188,16 @@ public class MeshPlayer {
 		}
 		{
 			var skeleton = new Skeleton(animator);
-			var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout);
-			layout.AddDecoderVisemeShapes(smrs[0].sharedMesh);
+			var appr = new Appearance(smrs[0].sharedMesh, true);
+			var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout,
+											appr, MotionLayout.defaultExprLayout);
 
 			var tex = (Texture2D)player.sharedMaterial.GetTexture("_Armature");
 			var mesh = player.GetComponent<MeshFilter>().sharedMesh;
 			CreatePlayerTex(tex, skeleton, layout);
-			CreatePlayerMesh(mesh, skeleton, layout,
+			CreatePlayerMesh(mesh, skeleton, appr, layout,
 				smrs.Select(smr => (smr.sharedMesh, smr.bones)).ToArray(), motionRadius:4);
+			EditorUtility.SetDirty(player);
 			AssetDatabase.SaveAssets();
 		}
 		return player;
@@ -221,18 +211,26 @@ public class MeshPlayer {
 	}
 }
 class MeshPlayerEditor {
+	static void CreatePlayer(Animator animator, SkinnedMeshRenderer[] smrs) {
+		EditorGUIUtility.PingObject(MeshPlayer.CreatePlayer(animator.name + ".Player",
+			animator.transform.parent, animator, smrs, MeshPlayer.CreatePlayerPath(animator)));
+	}
 	[MenuItem("CONTEXT/SkinnedMeshRenderer/CreateMeshPlayer")]
-	static void CreatePlayer(MenuCommand command) {
+	static void CreatePlayerFromSkinnedMeshRenderer(MenuCommand command) {
 		var smr = (SkinnedMeshRenderer)command.context;
-		var smrs = Selection.gameObjects.Select(x => x.GetComponent<SkinnedMeshRenderer>())
-											.Where(x => x).ToArray();
-		if(!(smrs.Length > 0 && smrs[0] == smr))
-			return;
-
 		var animator = smr.gameObject.GetComponentInParent<Animator>();
-		var player = MeshPlayer.CreatePlayer(animator.name + ".Player", animator.transform.parent, animator, smrs,
-						MeshPlayer.CreatePlayerPath(animator));
-		EditorGUIUtility.PingObject(player);
+		// combine all SMRs in the same avatar
+		var smrs = Selection.gameObjects.Select(x => x.GetComponent<SkinnedMeshRenderer>())
+					.Where(x => (bool)x && x.gameObject.GetComponentInParent<Animator>() == animator).ToArray();
+		if(smrs.Length > 0 && smrs[0] == smr)
+			CreatePlayer(animator, smrs);
+	}
+	[MenuItem("CONTEXT/Animator/CreateMeshPlayer")]
+	static void CreatePlayerFromAnimator(MenuCommand command) {
+		var animator = (Animator)command.context;
+		var smrs = animator.gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
+		if(smrs.Length > 0)
+			CreatePlayer(animator, smrs);
 	}
 }
 }

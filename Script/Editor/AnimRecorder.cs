@@ -35,6 +35,9 @@ public class AnimRecorder {
 		}
 		bindProxies();
 	}
+	public void BindComponent(Component component) {
+		recorder.BindComponent(component);
+	}
 	public void Dispose() {
 		var destroy = EditorApplication.isPlaying ? (System.Action<Object>)Object.Destroy : (System.Action<Object>)Object.DestroyImmediate;
 		if(recorder) {
@@ -56,9 +59,7 @@ public class AnimRecorder {
 			for(int j=0; j<4; j++)
 				recorder.Bind(EditorCurveBinding.FloatCurve(path, typeof(Transform), "m_LocalRotation."+axes[j]));
 		}
-		for(int i=1; i<HumanTrait.BoneCount; i++) {
-			if(!animator.GetBoneTransform((HumanBodyBones)i))
-				continue; // don't record missing bones
+		for(int i=1; i<HumanTrait.BoneCount; i++) if(animator.GetBoneTransform((HumanBodyBones)i)) {
 			var path = AnimationUtility.CalculateTransformPath(proxies[i], animator.transform);
 			for(int j=0; j<3; j++)
 				if(MuscleFromBone[i, j] >= 0)
@@ -74,6 +75,7 @@ public class AnimRecorder {
 			for(int j=0; j<4; j++)
 				rootCurves[3+j] = AnimationUtility.GetEditorCurve(clip,
 					EditorCurveBinding.FloatCurve(path, typeof(Transform), "m_LocalRotation."+axes[j]));
+			clip.SetCurve(path, typeof(Transform), "m_LocalRotation", null);
 		}
 		for(int i=1; i<HumanTrait.BoneCount; i++) {
 			var path = AnimationUtility.CalculateTransformPath(proxies[i], animator.transform);
@@ -82,24 +84,11 @@ public class AnimRecorder {
 					muscleCurves[MuscleFromBone[i, j]] = AnimationUtility.GetEditorCurve(clip,
 						EditorCurveBinding.FloatCurve(path, typeof(Transform), "m_LocalPosition."+axes[j]));
 		}
-	}
-	void clearProxyCurves(AnimationClip clip) {
-		// SetCurve can clear m_LocalPosition.xyz in a single call
+		// somehow it's faster to remove curves together at end
 		for(int i=0; i<HumanTrait.BoneCount; i++) {
 			var path = AnimationUtility.CalculateTransformPath(proxies[i], animator.transform);
-			clip.SetCurve(path, typeof(Transform), "m_LocalPosition", null);
-			if(i == 0)
-				clip.SetCurve(path, typeof(Transform), "m_LocalRotation", null);
+			clip.SetCurve(path, typeof(Transform), "m_LocalPosition", null); // fast remove xyz in a single call
 		}
-	}
-	void setHumanCurves(AnimationClip clip, AnimationCurve[] rootCurves, AnimationCurve[] muscleCurves) {
-		// AnimationClip.SetCurve is faster than AnimationUtility.SetEditorCurve
-		for(int i=0; i<3; i++)
-			clip.SetCurve("", typeof(Animator), "RootT."+axes[i], rootCurves[0+i]);
-		for(int i=0; i<4; i++)
-			clip.SetCurve("", typeof(Animator), "RootQ."+axes[i], rootCurves[3+i]);
-		for(int i=0; i<HumanTrait.MuscleCount; i++)
-			clip.SetCurve("", typeof(Animator), AnimatorMuscleName[i], muscleCurves[i]);
 	}
 
 	[System.NonSerialized]
@@ -132,7 +121,7 @@ public class AnimRecorder {
 		var rootCurves = new AnimationCurve[7];
 		var muscleCurves = new AnimationCurve[HumanTrait.MuscleCount];
 		getProxyCurves(clip, rootCurves, muscleCurves);
-		clearProxyCurves(clip);
+		RemoveConstantCurves(clip);
 
 		var so = new SerializedObject(clip);
 		// don't change root motion (BakeIntoPose = true)
@@ -145,25 +134,41 @@ public class AnimRecorder {
 		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalPositionXZ").boolValue = true;
 		so.ApplyModifiedProperties();
 
-		setHumanCurves(clip, rootCurves, muscleCurves);
+		SetHumanCurves(clip, rootCurves, muscleCurves);
 	}
 
-	public static readonly int[,]   MuscleFromBone = new int[HumanTrait.BoneCount, 3];
-	public static readonly string[] AnimatorMuscleName = new string[HumanTrait.MuscleCount];
+	static void SetHumanCurves(AnimationClip clip, AnimationCurve[] rootCurves, AnimationCurve[] muscleCurves) {
+		// AnimationClip.SetCurve is faster than AnimationUtility.SetEditorCurve
+		for(int i=0; i<3; i++)
+			clip.SetCurve("", typeof(Animator), "RootT."+axes[i], rootCurves[0+i]);
+		for(int i=0; i<4; i++)
+			clip.SetCurve("", typeof(Animator), "RootQ."+axes[i], rootCurves[3+i]);
+		for(int i=0; i<HumanTrait.MuscleCount; i++)
+			clip.SetCurve("", typeof(Animator), MuscleName[i], muscleCurves[i]);
+	}
+	static void RemoveConstantCurves(AnimationClip clip) {
+		foreach(var binding in AnimationUtility.GetCurveBindings(clip)) {
+			var curve = AnimationUtility.GetEditorCurve(clip, binding);
+			if(curve.length <= 2 && curve.keys[0].value == curve.keys[curve.length-1].value)
+				clip.SetCurve(binding.path, binding.type, binding.propertyName, null);
+		}
+		foreach(var binding in AnimationUtility.GetObjectReferenceCurveBindings(clip)) {
+			var keys = AnimationUtility.GetObjectReferenceCurve(clip, binding);
+			if(keys.Length <= 2 && keys[0].value == keys[keys.Length-1].value)
+				AnimationUtility.SetObjectReferenceCurve(clip, binding, null);
+		}
+	}
+
 	static readonly string[] axes = new[]{"x", "y", "z", "w"};
+	// patch MuscleName to match humanoid animation property name
+	public static readonly string[] MuscleName = HumanTrait.MuscleName.Select(name => Regex.Replace(name,
+			@"(Left|Right) (\w+) (Spread|\w+ Stretched)", "$1Hand.$2.$3", RegexOptions.IgnoreCase)).ToArray();
+	// cache MuscleFromBone for fast access in TakeSnapshot
+	public static readonly int[,]   MuscleFromBone = new int[HumanTrait.BoneCount, 3];
 	static AnimRecorder() {
 		for(int i=0; i<HumanTrait.BoneCount; i++)
 			for(int j=0; j<3; j++)
 				MuscleFromBone[i,j] = HumanTrait.MuscleFromBone(i, j);
-		// fix HumanTrait.MuscleName to match Animator's propertyName
-		for(int i=0; i<HumanTrait.MuscleCount; i++) {
-			var name = HumanTrait.MuscleName[i];
-			name = Regex.Replace(name, @"(Left|Right) (\w+) (\w+) (Stretched)",
-										"$1Hand.$2.$3 $4", RegexOptions.IgnoreCase);
-			name = Regex.Replace(name, @"(Left|Right) (\w+) (Spread)",
-										"$1Hand.$2.$3", RegexOptions.IgnoreCase);
-			AnimatorMuscleName[i] = name;
-		}
 	}
 }
 class AnimRecorderWindow : EditorWindow {
@@ -186,8 +191,11 @@ class AnimRecorderWindow : EditorWindow {
 
 		if(!recorder) {
 			using(new EditorGUI.DisabledScope(!animator || !clip || !EditorApplication.isPlaying))
-				if(GUILayout.Button("Start"))
+				if(GUILayout.Button("Start")) {
 					recorder = new AnimRecorder(animator);
+					foreach(var smr in animator.GetComponentsInChildren<SkinnedMeshRenderer>())
+						recorder.BindComponent(smr);
+				}
 		} else if(!EditorApplication.isPlaying) {
 			recorder.Dispose();
 			recorder = null;

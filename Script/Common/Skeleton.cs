@@ -62,7 +62,7 @@ public class Skeleton {
 	}
 	private static bool GetSkeletonPosePosition(Avatar avatar, int axesId, out Vector3 pos) {
 		pos = default(Vector3);
-		#if UNITY_EDITOR
+		#if UNITY_EDITOR // this can be improved when avatar.humanDescription is exposed in unity 2019
 			var human = new SerializedObject(avatar).FindProperty("m_Avatar.m_Human.data");
 			var skeletonNode = human.FindPropertyRelative("m_Skeleton.data.m_Node");
 			var skeletonPose = human.FindPropertyRelative("m_SkeletonPose.data.m_X");

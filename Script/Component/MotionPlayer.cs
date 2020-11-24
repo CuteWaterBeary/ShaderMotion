@@ -17,18 +17,19 @@ public class MotionPlayer : MonoBehaviour  {
 	private Skeleton skeleton;
 	[System.NonSerialized]
 	private MotionDecoder decoder;
-	[System.NonSerialized]
-	private Vector3 baseLocalScale;
 	
 	void OnEnable() {
-		var animator = this.animator ? this.animator : GetComponent<Animator>(); 
-		var shapeRenderer = this.shapeRenderer ? this.shapeRenderer : null;
+		if(!animator)
+			animator = GetComponent<Animator>();
+		if(!shapeRenderer)
+			shapeRenderer = (animator?.GetComponentsInChildren<SkinnedMeshRenderer>() ?? new SkinnedMeshRenderer[0])
+				.Where(smr => (smr.sharedMesh?.blendShapeCount??0) > 0).FirstOrDefault();
 
 		skeleton = new Skeleton(animator);
-		var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout);
-		layout.AddDecoderVisemeShapes(shapeRenderer?.sharedMesh);
-		decoder = new MotionDecoder(skeleton, layout);
-		baseLocalScale = Vector3.one / skeleton.humanScale;
+		var appr = new Appearance(shapeRenderer?.sharedMesh, true);
+		var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout,
+										appr, MotionLayout.defaultExprLayout);
+		decoder = new MotionDecoder(skeleton, appr, layout);
 	}
 	void OnDisable() {
 		skeleton = null;
@@ -46,9 +47,15 @@ public class MotionPlayer : MonoBehaviour  {
 		}
 	}
 
+	const float shapeWeightEps = 0.1f;
+	const float rootScaleEps = 0.01f;
 	private HumanPoseHandler poseHandler;
 	private HumanPose humanPose;
 	private Vector3[] swingTwists;
+	void ApplyScale() {
+		var localScale = Mathf.Round(decoder.motions[0].s / skeleton.humanScale / rootScaleEps) * rootScaleEps;
+		skeleton.root.localScale = Vector3.one * localScale;
+	}
 	void ApplyHumanPose() {
 		if(poseHandler == null) {
 			poseHandler = new HumanPoseHandler(skeleton.root.GetComponent<Animator>().avatar, skeleton.root);
@@ -61,10 +68,10 @@ public class MotionPlayer : MonoBehaviour  {
 		HumanPoser.SetBoneSwingTwists(ref humanPose, swingTwists);
 		HumanPoser.SetHipsPositionRotation(ref humanPose, motions[0].t, motions[0].q, motions[0].s);
 		poseHandler.SetHumanPose(ref humanPose);
-		skeleton.root.localScale = decoder.motions[0].s * baseLocalScale;
+		ApplyScale();
 	}
 	void ApplyTransform() {
-		skeleton.root.localScale = decoder.motions[0].s * baseLocalScale;
+		ApplyScale();
 		skeleton.bones[0].position = skeleton.root.TransformPoint(decoder.motions[0].t / skeleton.root.localScale.y);
 		for(int i=0; i<skeleton.bones.Length; i++)
 			if(skeleton.bones[i]) {
@@ -80,9 +87,9 @@ public class MotionPlayer : MonoBehaviour  {
 			var mesh = shapeRenderer.sharedMesh;
 			foreach(var kv in decoder.shapes) {
 				var shape = mesh.GetBlendShapeIndex(kv.Key);
-				var frame = mesh.GetBlendShapeFrameCount(shape)-1;
-				var weight = mesh.GetBlendShapeFrameWeight(shape, frame);
-				shapeRenderer.SetBlendShapeWeight(shape, kv.Value * weight);
+				if(shape >= 0)
+					shapeRenderer.SetBlendShapeWeight(shape,
+						Mathf.Round(Mathf.Clamp01(kv.Value)*100/shapeWeightEps)*shapeWeightEps);
 			}
 		}
 	}
