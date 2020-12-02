@@ -37,9 +37,16 @@ public class WebExporter {
 		@"#ifdef VERTEX\s+(.+?)\s+#endif\s+#ifdef FRAGMENT\s+(.+?)\s+#endif\s+--",
 			RegexOptions.Compiled | RegexOptions.Singleline);
 	static readonly Regex re_vec4_hlslcc_mtx4x4 = new Regex(@"vec4 hlslcc_mtx4x4(\w+)\[4\]", RegexOptions.Compiled);
+	static readonly Regex re_UNITY_ADRENO_ES3 = new Regex(@"[#]ifdef UNITY_ADRENO_ES3[^#]+[#]else\n([^#]+)[#]endif\n", RegexOptions.Compiled);
+	static readonly Regex re_ivec3 = new Regex(@"ivec3(\(\d+, \d+\))", RegexOptions.Compiled);
 	static string FixShaderSource(string source) {
-		source = re_vec4_hlslcc_mtx4x4.Replace(source, "mat4 $1");
+		// take mat4 instead of vec4[4]
+		source = re_vec4_hlslcc_mtx4x4.Replace(source, "mat4 $1"); 
 		source = source.Replace("hlslcc_mtx4x4", "");
+		// remove UNITY_ADRENO_ES3 branch
+		source = re_UNITY_ADRENO_ES3.Replace(source, "$1");
+		// fix hlslcc bug: wrong constructor ivec3(x, y) in texelFetchOffset
+		source = re_ivec3.Replace(source, "ivec2$1");
 		return source;
 	}
 

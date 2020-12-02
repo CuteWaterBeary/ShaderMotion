@@ -85,7 +85,7 @@ struct MeshPlayerGen {
 		var vertices = new List<Vector3>();
 		var normals  = new List<Vector3>();
 		var tangents = new List<Vector4>();
-		var uvs      = new[]{new List<Vector4>(), new List<Vector4>(), new List<Vector4>()};
+		var uvs      = new[]{new List<Vector4>(), new List<Vector4>()};
 		var bindposes = new Matrix4x4[skel.bones.Length];
 		var colors = new List<Color>();
 		foreach(var (srcMesh, srcBones) in sources) {
@@ -102,8 +102,9 @@ struct MeshPlayerGen {
 			normals .AddRange(Enumerable.Repeat(Vector3.zero, vertices.Count-normals .Count)); // pad missing vectors
 			tangents.AddRange(Enumerable.Repeat(Vector4.zero, vertices.Count-tangents.Count));
 			uvs[0].AddRange(srcMesh.uv.Select((uv, v) => new Vector4(uv.x, uv.y, shapeUV[v].x, shapeUV[v].y)));
-			uvs[1].AddRange(boneWeights.Select(bw => new Vector4(bw.boneIndex0, bw.boneIndex1, bw.boneIndex2, bw.boneIndex3)));
-			uvs[2].AddRange(boneWeights.Select(bw => new Vector4(bw.weight0,    bw.weight1,    bw.weight2,    bw.weight3)));
+			uvs[1].AddRange(boneWeights.Select(bw => new Vector4(
+				bw.boneIndex0+Mathf.Clamp01(bw.weight0)/2, bw.boneIndex1+Mathf.Clamp01(bw.weight1)/2,
+				bw.boneIndex2+Mathf.Clamp01(bw.weight2)/2, bw.boneIndex3+Mathf.Clamp01(bw.weight3)/2)));
 		}
 		shapeTex.Resize(256, colors.Count/256, TextureFormat.RGBAFloat, false);
 		shapeTex.SetPixels(colors.ToArray());

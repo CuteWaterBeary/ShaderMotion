@@ -43,7 +43,7 @@ UNITY_INSTANCING_BUFFER_START(Props)
 	UNITY_DEFINE_INSTANCED_PROP(float, _Layer)
 UNITY_INSTANCING_BUFFER_END(Props)
 
-void vert(VertInputPlayer i, out FragInput o) {
+void vert(VertInputSkin i, out FragInput o) {
 	UNITY_SETUP_INSTANCE_ID(i);
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
