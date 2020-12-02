@@ -1,18 +1,16 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.Linq;
-using Path = System.IO.Path;
 using UnityEngine;
 using UnityEditor;
 using GameObjectRecorder = UnityEditor.Animations.GameObjectRecorder;
 using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
-[System.Serializable] // this is serializable to survive code reload
+[System.Serializable] // make this serializable to survive code reload
 public class AnimRecorder {
 	[SerializeField]
 	Animator animator;
-	Transform hips;
 	GameObjectRecorder recorder;
 	Transform[] proxies;
 
@@ -22,7 +20,6 @@ public class AnimRecorder {
 	}
 	public AnimRecorder(Animator animator) {
 		this.animator = animator;
-		this.hips     = animator.GetBoneTransform(HumanBodyBones.Hips);
 		this.recorder = new GameObjectRecorder(animator.gameObject);
 		this.proxies  = new Transform[HumanTrait.BoneCount];
 
@@ -44,12 +41,11 @@ public class AnimRecorder {
 			recorder.ResetRecording();
 			destroy(recorder);
 		}
-		if(proxies != null && proxies.Length != 0 && proxies[0])
+		if((proxies?.Length??0) != 0 && proxies[0])
 			destroy(proxies[0].parent.gameObject);
 		animator = null;
 		recorder = null;
-		hips = null;
-		proxies = null;
+		proxies  = null;
 	}
 	void bindProxies() {
 		{
@@ -116,25 +112,25 @@ public class AnimRecorder {
 			return;
 		}
 
+		// todo: use CurveFilterOptions in 2019
 		recorder.SaveToClip(clip, fps);
 
 		var rootCurves = new AnimationCurve[7];
 		var muscleCurves = new AnimationCurve[HumanTrait.MuscleCount];
 		getProxyCurves(clip, rootCurves, muscleCurves);
 		RemoveConstantCurves(clip);
-
-		var so = new SerializedObject(clip);
-		// don't change root motion (BakeIntoPose = true)
-		so.FindProperty("m_AnimationClipSettings.m_LoopBlendOrientation").boolValue = true;
-		so.FindProperty("m_AnimationClipSettings.m_LoopBlendPositionY").boolValue = true;
-		so.FindProperty("m_AnimationClipSettings.m_LoopBlendPositionXZ").boolValue = true;
-		// set coordinate system to origin (BasedUpon = origin)
-		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalOrientation").boolValue = true;
-		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalPositionY").boolValue = true;
-		so.FindProperty("m_AnimationClipSettings.m_KeepOriginalPositionXZ").boolValue = true;
-		so.ApplyModifiedProperties();
-
 		SetHumanCurves(clip, rootCurves, muscleCurves);
+
+		var settings = AnimationUtility.GetAnimationClipSettings(clip);
+		settings.loopBlendOrientation    = true; // Root Transform Rotation: Bake Into Pose
+		settings.keepOriginalOrientation = true; // Root Transform Rotation: Based Upon = Origin
+		settings.orientationOffsetY      = 0;    // Root Transform Rotation: Offset
+		settings.loopBlendPositionY      = true; // Root Transform Position (Y): Bake Into Pose
+		settings.keepOriginalPositionY   = true; // Root Transform Position (Y): Based Upon = Origin
+		settings.level                   = 0;    // Root Transform Position (Y): Offset
+		settings.loopBlendPositionXZ     = true; // Root Transform Position (XZ): Bake Into Pose
+		settings.keepOriginalPositionXZ  = true; // Root Transform Position (XZ): Based Upon = Origin
+		AnimationUtility.SetAnimationClipSettings(clip, settings);
 	}
 
 	static void SetHumanCurves(AnimationClip clip, AnimationCurve[] rootCurves, AnimationCurve[] muscleCurves) {
@@ -144,7 +140,7 @@ public class AnimRecorder {
 		for(int i=0; i<4; i++)
 			clip.SetCurve("", typeof(Animator), "RootQ."+axes[i], rootCurves[3+i]);
 		for(int i=0; i<HumanTrait.MuscleCount; i++)
-			clip.SetCurve("", typeof(Animator), MuscleName[i], muscleCurves[i]);
+			clip.SetCurve("", typeof(Animator), MusclePropName[i], muscleCurves[i]);
 	}
 	static void RemoveConstantCurves(AnimationClip clip) {
 		foreach(var binding in AnimationUtility.GetCurveBindings(clip)) {
@@ -160,11 +156,9 @@ public class AnimRecorder {
 	}
 
 	static readonly string[] axes = new[]{"x", "y", "z", "w"};
-	// patch MuscleName to match humanoid animation property name
-	public static readonly string[] MuscleName = HumanTrait.MuscleName.Select(name => Regex.Replace(name,
-			@"(Left|Right) (\w+) (Spread|\w+ Stretched)", "$1Hand.$2.$3", RegexOptions.IgnoreCase)).ToArray();
-	// cache MuscleFromBone for fast access in TakeSnapshot
 	public static readonly int[,]   MuscleFromBone = new int[HumanTrait.BoneCount, 3];
+	public static readonly string[] MusclePropName = HumanTrait.MuscleName.Select(name => Regex.Replace(name,
+			@"(Left|Right) (\w+) (Spread|\w+ Stretched)", "$1Hand.$2.$3", RegexOptions.IgnoreCase)).ToArray();
 	static AnimRecorder() {
 		for(int i=0; i<HumanTrait.BoneCount; i++)
 			for(int j=0; j<3; j++)
@@ -174,15 +168,14 @@ public class AnimRecorder {
 class AnimRecorderWindow : EditorWindow {
 	[MenuItem("CONTEXT/Animator/RecordAnimation")]
 	static void RecordAnimation(MenuCommand command) {
-		var animator = (Animator)command.context;
 		var window = EditorWindow.GetWindow<AnimRecorderWindow>("RecordAnimation");
+		window.animator = (Animator)command.context;
 		window.Show();
-		window.animator = animator;
 	}
 
-	AnimRecorder recorder = null;
-	Animator animator = null;
-	AnimationClip clip = null;
+	AnimRecorder recorder;
+	Animator animator;
+	AnimationClip clip;
 	int frameRate = 30;
 	void OnGUI() {
 		animator = (Animator)EditorGUILayout.ObjectField("Animator", animator, typeof(Animator), true);
@@ -201,7 +194,6 @@ class AnimRecorderWindow : EditorWindow {
 			recorder = null;
 		} else {
 			if(GUILayout.Button("Stop")) {
-				clip.ClearCurves();
 				recorder.SaveToClip(clip, frameRate);
 				recorder.Dispose();
 				recorder = null;

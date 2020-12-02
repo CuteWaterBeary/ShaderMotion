@@ -33,6 +33,8 @@ public class MotionLayout {
 		(80, 0),
 		(81, 1),
 		(82, 2),
+		(83, 3),
+		(84, 4),
 	};
 	public static (int, int, int)[] defaultHumanLayout = new []{
 		// roughly ordered by HumanTrait.GetBoneDefaultHierarchyMass

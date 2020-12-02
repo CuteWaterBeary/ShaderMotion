@@ -53,7 +53,8 @@ public class MotionPlayer : MonoBehaviour  {
 	private HumanPose humanPose;
 	private Vector3[] swingTwists;
 	void ApplyScale() {
-		var localScale = Mathf.Round(decoder.motions[0].s / skeleton.humanScale / rootScaleEps) * rootScaleEps;
+		// var localScale = Mathf.Round(decoder.motions[0].s / skeleton.humanScale / rootScaleEps) * rootScaleEps;
+		var localScale = decoder.motions[0].s / skeleton.humanScale;
 		skeleton.root.localScale = Vector3.one * localScale;
 	}
 	void ApplyHumanPose() {

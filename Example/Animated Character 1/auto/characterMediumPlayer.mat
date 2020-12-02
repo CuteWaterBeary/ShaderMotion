@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: characterMediumPlayer
-  m_Shader: {fileID: 4800000, guid: 00a71ddf3b7dffc489c7eab664308baa, type: 3}
+  m_Shader: {fileID: 4800000, guid: dd06eb73e4fc7a84fbb5fecce12d7d07, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -20,7 +20,11 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _Armature:
-        m_Texture: {fileID: 28768098428396408, guid: 66477ede8cb6acd42a1fafe3bf5a2a9e,
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Bone:
+        m_Texture: {fileID: 28261413282981026, guid: 66477ede8cb6acd42a1fafe3bf5a2a9e,
           type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -30,6 +34,11 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _MotionDec:
         m_Texture: {fileID: 8600000, guid: 0247e5cfe3e145b4d9cba5360c02bfea, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Shape:
+        m_Texture: {fileID: 28856249214143266, guid: 66477ede8cb6acd42a1fafe3bf5a2a9e,
+          type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:

@@ -12,8 +12,9 @@ Properties {
 	_NearClip ("NearClip", Float) = 0
 
 	[Header(Motion)]
-	[NoScaleOffset] _Armature ("Armature", 2D) = "black" {}
 	[NoScaleOffset] _MotionDec ("MotionDec", 2D) = "black" {}
+	[NoScaleOffset] _Bone ("Bone", 2D) = "black" {}
+	[NoScaleOffset] _Shape ("Shape", 2D) = "black" {}
 	_Layer ("Layer", Float) = 0
 	_RotationTolerance ("RotationTolerance", Range(0, 1)) = 0.1
 }
@@ -50,13 +51,12 @@ void vert(VertInputPlayer i, out FragInput o) {
 	#if defined(SHADER_API_GLES3)
 		highRange = false;
 	#endif
-	VertInputSkinned I;
-	SkinVertex(i, I, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer), highRange);
+	SkinVertex(i, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer), highRange);
 	
-	o.vertex = mul(unity_ObjectToWorld, float4(I.vertex, 1));
-	o.normal = mul(unity_ObjectToWorld, float4(I.normal, 0));
+	o.vertex = mul(unity_ObjectToWorld, float4(i.vertex, 1));
+	o.normal = mul(unity_ObjectToWorld, float4(i.normal, 0));
 	o.pos = UnityWorldToClipPos(o.vertex);
-	o.tex = I.texcoord;
+	o.tex = i.texcoord;
 }
 ENDCG
 	}
