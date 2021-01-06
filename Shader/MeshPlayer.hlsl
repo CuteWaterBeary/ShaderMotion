@@ -3,6 +3,7 @@
 #include "VideoLayout.hlsl"
 #include "Skinning.hlsl"
 
+float _ApplyScale;
 float _RotationTolerance;
 static const float _PositionScale = 2;
 
@@ -51,6 +52,10 @@ void TransformRoot(inout float3x3 mat, float4 data) {
 
 	float rlen2 = rsqrt(dot(rot.c2,rot.c2));
 	rot.c1 *= rlen2 * data.z;
+	if(!_ApplyScale) {
+		pos *= rsqrt(dot(rot.c1,rot.c1));
+		rot.c1 = normalize(rot.c1);
+	}
 	rot.c2 *= rlen2 * length(rot.c1);
 	rot.c0 = cross(normalize(rot.c1), rot.c2);
 
@@ -63,7 +68,7 @@ float GetShapeWeight(float data) {
 
 Texture2D _Bone;
 Texture2D _Shape;
-void SkinVertex(inout VertInputSkin i, uint layer, bool highRange=true) {
+void SkinVertex(inout VertInputSkin i, uint layer) {
 	_MotionDec_ST = float4(1, 1, layer/2 * layerRect.z, 0);
 	if(layer & 1)
 		_MotionDec_ST.xz = float2(0, 1) - _MotionDec_ST.xz;

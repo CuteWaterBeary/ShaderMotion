@@ -51,10 +51,10 @@ struct MeshPlayerGen {
 			var idx0 = layout.bones[b].Select((idx, axis) => idx < 0 ? 0 : idx - (axis - (axis<3?0:3))).Max();
 			var mask = layout.bones[b].Select((idx, axis) => idx < 0 ? 0 : 1<<axis).Sum();
 			if(p < 0)
-				axesData[b] = new Vector4(1,1,1, 0) / skel.humanScale + new Vector4(0,0,0, -1-idx0);
+				axesData[b] = (Vector4)(Vector3.one / skel.humanScale) + new Vector4(0,0,0, -1-idx0);
 			else
-				axesData[b] = new Vector4((mask>>0)&1, (mask>>1)&1, (mask>>2)&1, 0) * skel.axes[b].sign
-							+ new Vector4(0,0,0, idx0);
+				axesData[b] = (Vector4)Vector3.Scale(skel.axes[b].scale,
+								new Vector3((mask>>0)&1, (mask>>1)&1, (mask>>2)&1)) + new Vector4(0,0,0, idx0);
 			if(p < 0)
 				restPose[b] = Matrix4x4.identity;
 			else if(skel.bones[p] == skel.bones[b])

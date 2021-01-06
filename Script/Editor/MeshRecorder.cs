@@ -64,13 +64,13 @@ public class MeshRecorder {
 				vertices.Add(mat1.GetColumn(3));
 				normals. Add(mat1.GetColumn(1));
 				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(axis, p >= 0 ? skel.axes[b].sign : 0));
+				uvs     .Add(new Vector2(axis, axis < 3 ? skel.axes[b].scale[axis] : 0));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[b], weight0=1});
 			}
 		}
 		var exprVertex = new int[appr.exprShapes.Length];
 		{
-			int chan = 7, sign = 1;
+			int chan = 7, scale = 1;
 			var mat1 = (Matrix4x4.Scale((skel.root.worldToLocalMatrix
 				* skel.bones[0].localToWorldMatrix).lossyScale/(skel.humanScale*1e-4f)) * bindposes[boneIdx[0]]).inverse
 				* Matrix4x4.Rotate(skel.axes[0].postQ);
@@ -87,7 +87,7 @@ public class MeshRecorder {
 				vertices.Add(mat1.GetColumn(3));
 				normals. Add(mat1.GetColumn(1));
 				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(chan, sign));
+				uvs     .Add(new Vector2(chan, scale));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[0], weight0=1});
 			}
 		}
@@ -164,8 +164,7 @@ public class MeshRecorder {
 		var recorder = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
 							?.GetComponent<SkinnedMeshRenderer>();
 		if(!recorder) {
-			if(!System.IO.Directory.Exists(Path.GetDirectoryName(path)))
-				System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
+			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
 
 			var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
 			if(!mesh) {

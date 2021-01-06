@@ -43,6 +43,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - _AlphaTest: 0
+    - _ApplyScale: 1
     - _Cull: 2
     - _Cutoff: 0
     - _Decoded: 0

@@ -11,28 +11,28 @@ public class MotionDecoder {
 	public readonly MotionLayout layout;
 	public readonly Dictionary<string, float> shapes;
 	public readonly (Vector3 t, Quaternion q, float s)[] motions;
-	public MotionDecoder(Skeleton skeleton, Appearance appearance, MotionLayout layout,
-						int width=80, int height=45, int tileRadix=3, int tileLen=2) {
+	private readonly Vector3Int tileCount;
+	public MotionDecoder(Skeleton skeleton, Appearance appearance, MotionLayout layout, int width=80, int height=45,
+						int tileWidth=2, int tileHeight=1, int tileDepth=3, int tileRadix=3) {
 		this.skeleton = skeleton;
 		this.appearance = appearance;
 		this.layout = layout;
 		this.shapes = new Dictionary<string, float>();
 		this.motions = new (Vector3,Quaternion,float)[skeleton.bones.Length];
 
-		tileCount = new Vector2Int(width/tileLen, height);
-		tilePow = (int)System.Math.Pow(tileRadix, tileLen*3);
+		tileCount = new Vector3Int(width/tileWidth, height/tileHeight,
+			(int)System.Math.Pow(tileRadix, tileWidth*tileHeight*tileDepth));
 	}
 
 	const float PositionScale = 2;
+	const int layerSize = 3;
 	private NativeArray<float> tex = new NativeArray<float>();
 	private Vector3Int texSize;
-	private Vector2Int tileCount;
-	private int tilePow;
 	private int layer;
 	private float SampleTile(int idx) {
 		int x = idx / tileCount.y;
 		int y = idx % tileCount.y;
-		x += layer/2 * 3;
+		x += layer/2 * layerSize;
 		if((layer & 1) != 0)
 			x = tileCount.x-1-x;
 
@@ -53,10 +53,10 @@ public class MotionDecoder {
 
 			if(layout.bones[b].Length <= 3) {
 				var swingTwist = vec[0] * 180;
-				motions[b] = (swingTwist, HumanAxes.SwingTwist(skeleton.axes[b].sign * swingTwist), float.NaN);
+				motions[b] = (swingTwist, HumanAxes.SwingTwist(Vector3.Scale(skeleton.axes[b].scale, swingTwist)), float.NaN);
 			} else {
 				for(int j=0; j<3; j++)
-					vec[2][j] = ShaderImpl.DecodeVideoFloat(vec[1][j], vec[2][j], tilePow);
+					vec[2][j] = ShaderImpl.DecodeVideoFloat(vec[1][j], vec[2][j], tileCount.z);
 				var (rotY, rotZ) = ShaderImpl.orthogonalize(vec[3], vec[4]);
 				if(!(rotZ.magnitude > 0))
 					(rotY, rotZ) = (Vector3.up, Vector3.forward);

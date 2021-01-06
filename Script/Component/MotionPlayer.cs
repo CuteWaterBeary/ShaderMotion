@@ -9,7 +9,13 @@ public class MotionPlayer : MonoBehaviour  {
 	public Animator animator;
 	public SkinnedMeshRenderer shapeRenderer;
 	public int layer;
-	public bool applyHumanPose; // for testing
+	public bool applyScale = true;
+
+	[Header("Advanced settings")]
+	public bool applyHumanPose;
+	public Vector2Int resolution = new Vector2Int(80,45);
+	public Vector3Int tileSize = new Vector3Int(2,1,3);
+	public int tileRadix = 3;
 	
 	[System.NonSerialized]
 	private GPUReader gpuReader = new GPUReader();
@@ -29,7 +35,8 @@ public class MotionPlayer : MonoBehaviour  {
 		var appr = new Appearance(shapeRenderer?.sharedMesh, true);
 		var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout,
 										appr, MotionLayout.defaultExprLayout);
-		decoder = new MotionDecoder(skeleton, appr, layout);
+		decoder = new MotionDecoder(skeleton, appr, layout, resolution.x, resolution.y,
+			tileWidth:tileSize.x, tileHeight:tileSize.y, tileDepth:tileSize.z, tileRadix:tileRadix);
 	}
 	void OnDisable() {
 		skeleton = null;
@@ -53,7 +60,8 @@ public class MotionPlayer : MonoBehaviour  {
 	private HumanPose humanPose;
 	private Vector3[] swingTwists;
 	void ApplyScale() {
-		// var localScale = Mathf.Round(decoder.motions[0].s / skeleton.humanScale / rootScaleEps) * rootScaleEps;
+		if(!applyScale)
+			return;
 		var localScale = decoder.motions[0].s / skeleton.humanScale;
 		skeleton.root.localScale = Vector3.one * localScale;
 	}

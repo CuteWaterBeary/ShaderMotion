@@ -32,7 +32,7 @@ public class MeshUtil {
 			if(j >= 0 && dstBindposes[j][3,3] == 0)
 				if(k == 1) {
 					dstBindposes[j] = (dstBones[j].worldToLocalMatrix * srcBones[i].localToWorldMatrix) * srcBindposes[i];
-					Debug.Log($"Indirect retarget: bindpose[{(HumanBodyBones)j}] = MAT * bindpose[{srcBones[i]}]");
+					Debug.Log($"[Retarget] bindpose[{(HumanBodyBones)j}] = MAT * bindpose[{srcBones[i]?.name}]", srcBones[i]);
 				} else if(dstBones[j] == srcBones[i])
 					dstBindposes[j] = srcBindposes[i];
 		}
@@ -67,7 +67,7 @@ public class MeshUtil {
 							+ (diffm.GetColumn(2) - new Vector4(0,0,1,0)).sqrMagnitude
 							+ (diffm.GetColumn(3) - new Vector4(0,0,0,1)).sqrMagnitude;
 				if(diffv > 1e-8)
-					Debug.Log($"Transform is not identity: vertex affected by {srcBones[boneWeights[v].boneIndex0]} and {srcBones[boneWeights[v].boneIndex1]}");
+					Debug.Log($"[Retarget] vertex = MAT * vertex, bones == {{{srcBones[boneWeights[v].boneIndex0]?.name}, {srcBones[boneWeights[v].boneIndex1]?.name}}}", srcBones[boneWeights[v].boneIndex0]);
 			}
 
 			System.Array.Clear(bw, 0, bw.Length);
@@ -99,7 +99,7 @@ public class MeshUtil {
 		for(int i=0; i<boneMap.Length; i++)
 			if(boneMap[i] < 0 && used[i]) {
 				boneMap[i] = defaultBoneIndex;
-				Debug.Log($"Default retarget: {srcBones[i]} => {(HumanBodyBones)defaultBoneIndex}");
+				Debug.LogWarning($"[Retarget] boneMap[{srcBones[i]?.name}] = {(HumanBodyBones)defaultBoneIndex} (default)", srcBones[i]);
 			}
 		return RetargetBoneWeights(srcBones, dstBones, srcBindposes, dstBindposes, boneWeights, boneMap);
 	}

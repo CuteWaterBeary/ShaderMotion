@@ -166,9 +166,9 @@ public class AnimRecorder {
 	}
 }
 class AnimRecorderWindow : EditorWindow {
-	[MenuItem("CONTEXT/Animator/RecordAnimation")]
-	static void RecordAnimation(MenuCommand command) {
-		var window = EditorWindow.GetWindow<AnimRecorderWindow>("RecordAnimation");
+	[MenuItem("CONTEXT/Animator/AnimationRecorder")]
+	static void AnimationRecorder(MenuCommand command) {
+		var window = EditorWindow.GetWindow<AnimRecorderWindow>("AnimationRecorder");
 		window.animator = (Animator)command.context;
 		window.Show();
 	}

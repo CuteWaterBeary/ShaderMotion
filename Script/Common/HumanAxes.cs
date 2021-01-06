@@ -8,10 +8,9 @@ using UnityEditor;
 
 namespace ShaderMotion {
 public struct HumanAxes {
-	public float sign;
 	public Quaternion postQ; // tip == bone.position + bone.rotation * postQ * Vector3.right * limit.axisLength
-	public Quaternion preQ;  // bone.localRotation * postQ == preQ * SwingTwist(sign * angles)
-	public HumanLimit limit;
+	public Quaternion preQ;  // bone.localRotation * postQ == preQ * SwingTwist(scale * degrees)
+	public Vector3 scale;
 	public HumanAxes(Transform bone, Vector3 dir=new Vector3()) {
 		if(dir == Vector3.zero) { // guess bone direction
 			foreach(Transform c in bone)
@@ -20,20 +19,14 @@ public struct HumanAxes {
 				dir = -bone.InverseTransformPoint(bone.parent.position);
 			dir = bone.InverseTransformVector(Vector3.down);
 		}
-		sign  = 1;
 		postQ = Quaternion.FromToRotation(Vector3.right, dir);
 		preQ  = bone.localRotation * postQ;
-		limit = new HumanLimit{};
+		scale = Vector3.one;
 	}
 	public HumanAxes(Avatar avatar, HumanBodyBones humanBone) {
-		// bake non-uniform sign into quaternions
-		var sign3 = GetLimitSignFull(avatar, humanBone);
-		var signQ = Quaternion.LookRotation(new Vector3(0, 0, sign3.x*sign3.y), new Vector3(0, sign3.x*sign3.z, 0));
-		sign  = sign3.x*sign3.y*sign3.z;
-		preQ  = (Quaternion)GetPreRotation .Invoke(avatar, new object[]{humanBone}) * signQ;
-		postQ = (Quaternion)GetPostRotation.Invoke(avatar, new object[]{humanBone}) * signQ;
-		limit = GetHumanLimit(avatar, humanBone);
-		limit.axisLength *= sign3.y*sign3.z;
+		preQ  = (Quaternion)GetPreRotation .Invoke(avatar, new object[]{humanBone});
+		postQ = (Quaternion)GetPostRotation.Invoke(avatar, new object[]{humanBone});
+		scale = Vector3.Scale(GetLimitSignBetter(avatar, humanBone), GetLimitScale(avatar, humanBone));
 	}
 	public static Quaternion SwingTwist(Vector3 degree) {
 		var degreeYZ = new Vector3(0, degree.y, degree.z);
@@ -41,7 +34,8 @@ public struct HumanAxes {
 				* Quaternion.AngleAxis(degree.x, new Vector3(1,0,0));
 	}
 
-	static HumanLimit GetHumanLimit(Avatar avatar, HumanBodyBones humanBone) {
+	// compute the ratio of muscle ranges and their default values
+	static Vector3 GetLimitScale(Avatar avatar, HumanBodyBones humanBone) {
 		var limit = new HumanLimit{useDefaultValues = true};
 		#if UNITY_EDITOR // this can be improved when avatar.humanDescription is exposed in unity 2019
 			var importer = AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(avatar)) as ModelImporter;
@@ -53,20 +47,21 @@ public struct HumanAxes {
 						break;
 					}
 		#endif
-		limit.axisLength = (float)GetAxisLength.Invoke(avatar, new object[]{humanBone}); // not in humanDescription
-		if(limit.useDefaultValues) {
-			Vector3 min = new Vector3(), max = new Vector3();
+		var scale = Vector3.one;
+		if(!limit.useDefaultValues) {
 			for(int i=0; i<3; i++) {
 				var m = HumanTrait.MuscleFromBone((int)humanBone, i);
-				min[i] = m >= 0 ? HumanTrait.GetMuscleDefaultMin(m) : 0; // invalid input will crash
-				max[i] = m >= 0 ? HumanTrait.GetMuscleDefaultMax(m) : 0;
+				if(m >= 0) // GetMuscleDefaultMax/Min will crash Unity on invalid input
+					scale[i] = (limit.max[i]-limit.min[i])
+								/ (HumanTrait.GetMuscleDefaultMax(m)-HumanTrait.GetMuscleDefaultMin(m));
 			}
-			limit.min = min;
-			limit.max = max;
+			Debug.Log($"[HumanAxes] GetLimitScale({avatar?.name}, {humanBone}) == {scale}", avatar);
 		}
-		return limit;
+		return scale;
 	}
-	static Vector3 GetLimitSignFull(Avatar avatar, HumanBodyBones humanBone) {
+	// GetLimitSign always returns +1 for non-muscle axis
+	// this method improves it by matching its parent bone's axes
+	static Vector3 GetLimitSignBetter(Avatar avatar, HumanBodyBones humanBone) {
 		var sign = Vector3.zero;
 		for(var b = humanBone; (int)b >= 0; ) {
 			var s = (Vector3)GetLimitSign.Invoke(avatar, new object[]{b});
