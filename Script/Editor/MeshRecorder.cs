@@ -70,7 +70,7 @@ public class MeshRecorder {
 		}
 		var exprVertex = new int[appr.exprShapes.Length];
 		{
-			int chan = 7, scale = 1;
+			int axis = 7, scale = 1;
 			var mat1 = (Matrix4x4.Scale((skel.root.worldToLocalMatrix
 				* skel.bones[0].localToWorldMatrix).lossyScale/(skel.humanScale*1e-4f)) * bindposes[boneIdx[0]]).inverse
 				* Matrix4x4.Rotate(skel.axes[0].postQ);
@@ -87,7 +87,7 @@ public class MeshRecorder {
 				vertices.Add(mat1.GetColumn(3));
 				normals. Add(mat1.GetColumn(1));
 				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(chan, scale));
+				uvs     .Add(new Vector2(axis, scale));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[0], weight0=1});
 			}
 		}

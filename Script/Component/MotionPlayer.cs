@@ -55,21 +55,19 @@ public class MotionPlayer : MonoBehaviour  {
 	}
 
 	const float shapeWeightEps = 0.1f;
-	const float rootScaleEps = 0.01f;
 	private HumanPoseHandler poseHandler;
 	private HumanPose humanPose;
 	private Vector3[] swingTwists;
 	void ApplyScale() {
-		if(!applyScale)
-			return;
-		var localScale = decoder.motions[0].s / skeleton.humanScale;
-		skeleton.root.localScale = Vector3.one * localScale;
+		if(applyScale)
+			skeleton.root.localScale = Vector3.one * (decoder.motions[0].s/skeleton.humanScale);
 	}
 	void ApplyHumanPose() {
 		if(poseHandler == null) {
 			poseHandler = new HumanPoseHandler(skeleton.root.GetComponent<Animator>().avatar, skeleton.root);
 			poseHandler.GetHumanPose(ref humanPose);
 		}
+		ApplyScale();
 		var motions = decoder.motions;
 		System.Array.Resize(ref swingTwists, HumanTrait.BoneCount);
 		for(int i=0; i<HumanTrait.BoneCount; i++)
@@ -77,17 +75,18 @@ public class MotionPlayer : MonoBehaviour  {
 		HumanPoser.SetBoneSwingTwists(ref humanPose, swingTwists);
 		HumanPoser.SetHipsPositionRotation(ref humanPose, motions[0].t, motions[0].q, motions[0].s);
 		poseHandler.SetHumanPose(ref humanPose);
-		ApplyScale();
+		
 	}
 	void ApplyTransform() {
 		ApplyScale();
-		skeleton.bones[0].position = skeleton.root.TransformPoint(decoder.motions[0].t / skeleton.root.localScale.y);
+		skeleton.bones[0].position = skeleton.root.TransformPoint(
+			decoder.motions[0].t / (decoder.motions[0].s/skeleton.humanScale));
 		for(int i=0; i<skeleton.bones.Length; i++)
 			if(skeleton.bones[i]) {
 				var axes = skeleton.axes[i];
 				if(!skeleton.dummy[i])
 					skeleton.bones[i].localRotation = axes.preQ * decoder.motions[i].q * Quaternion.Inverse(axes.postQ);
-				else // TODO: this assumes non-dummy precedes dummy bone, so it fails on Neck
+				else // TODO: this assumes non-dummy precedes dummy bone and breaks for missing Neck
 					skeleton.bones[i].localRotation *= axes.postQ * decoder.motions[i].q * Quaternion.Inverse(axes.postQ);
 			}
 	}

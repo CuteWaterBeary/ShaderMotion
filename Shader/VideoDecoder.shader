@@ -1,6 +1,6 @@
 Shader "Motion/VideoDecoder" {
 Properties {
-	_MainTex ("Motion", 2D) = "black" {} // [MainTexture] isn't working well so we have to rename
+	_MainTex ("MainTex (encoded motion texture)", 2D) = "black" {} // [MainTexture] isn't working well so we have to rename
 }
 SubShader {
 	Pass {

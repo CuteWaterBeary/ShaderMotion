@@ -1,14 +1,18 @@
 Shader "Motion/MeshRecorder" {
 Properties {
-	[ToggleUI] _AutoHide ("AutoHide", Float) = 1
-	_Layer ("Layer", Float) = 0
+	[Header(Motion)]
+	[ToggleUI] _AutoHide ("AutoHide (only visible in camera with farClip=0)", Float) = 1
+	_Layer ("Layer (location of motion stripe)", Float) = 0
+
+	[Header(Culling)]
+	[Enum(UnityEngine.Rendering.CompareFunction)] _ZTest("ZTest (choose LessEqual to fix AMD bugs)", Float) = 0
 }
 SubShader {
 	Tags { "Queue"="Overlay" "RenderType"="Overlay" "PreviewType"="Plane" }
 	Pass {
 		Tags { "LightMode"="ForwardBase" }
 		Cull Off
-		ZTest Always ZWrite Off
+		ZTest [_ZTest] ZWrite [_ZTest]
 CGPROGRAM
 #pragma target 4.0
 #pragma vertex vert
@@ -73,7 +77,7 @@ void geom(line GeomInput i[2], inout TriangleStream<FragInput> stream) {
 
 	bool  background = i[0].uv.x < 0;
 	uint  slot = i[0].uv.x;
-	uint  chan = i[1].uv.x;
+	uint  axis = i[1].uv.x;
 	float sign = i[1].uv.y;
 
 	float3x3 mat1 = i[1].GetRotationScale();
@@ -92,17 +96,17 @@ void geom(line GeomInput i[2], inout TriangleStream<FragInput> stream) {
 	matZ = normalize(matZ);
 
 	float data;
-	if(chan < 3) {
+	if(axis < 3) {
 		float3x3 rot;
 		rot.c1 = matY;
 		rot.c2 = matZ;
 		rot.c0 = cross(rot.c1, rot.c2);
-		data = toSwingTwist(rot)[chan] / UNITY_PI / sign;
+		data = toSwingTwist(rot)[axis] / UNITY_PI / sign;
 	} else {
 		matY *= min(1, scale);
 		matZ *= min(1, rcp(scale));
 		pos /= _PositionScale;
-		data = chan < 9 ? pos[chan-(chan < 6 ? 3 : 6)] : chan < 12 ? matY[chan-9] : matZ[chan-12];
+		data = axis < 9 ? pos[axis-(axis < 6 ? 3 : 6)] : axis < 12 ? matY[axis-9] : matZ[axis-12];
 	}
 
 	uint layer = _Layer;
@@ -117,7 +121,7 @@ void geom(line GeomInput i[2], inout TriangleStream<FragInput> stream) {
 
 	FragInput o;
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-	EncodeVideoSnorm(o.color, data, chan >= 3 && chan < 6);
+	EncodeVideoSnorm(o.color, data, axis >= 3 && axis < 6);
 
 	float2 screenSize = _ScreenParams.xy/2;
 	rect = round(rect * screenSize.xyxy) / screenSize.xyxy;
@@ -129,18 +133,12 @@ void geom(line GeomInput i[2], inout TriangleStream<FragInput> stream) {
 	#endif
 
 	float4 uv = float4(0,0,1,1);
-	o.uv = uv.xy;
-	o.pos = float4(rect.xy, UNITY_NEAR_CLIP_VALUE, 1);
-	stream.Append(o);
-	o.uv = uv.xw;
-	o.pos = float4(rect.xw, UNITY_NEAR_CLIP_VALUE, 1);
-	stream.Append(o);
-	o.uv = uv.zy;
-	o.pos = float4(rect.zy, UNITY_NEAR_CLIP_VALUE, 1);
-	stream.Append(o);
-	o.uv = uv.zw;
-	o.pos = float4(rect.zw, UNITY_NEAR_CLIP_VALUE, 1);
-	stream.Append(o);
+	// set correct depth to work around AMD out-of-order rasterization
+	o.pos.zw = float2(lerp(UNITY_NEAR_CLIP_VALUE, 0, background ? 1e-4 : 0), 1);
+	o.uv = uv.xy, o.pos.xy = rect.xy, stream.Append(o);
+	o.uv = uv.xw, o.pos.xy = rect.xw, stream.Append(o);
+	o.uv = uv.zy, o.pos.xy = rect.zy, stream.Append(o);
+	o.uv = uv.zw, o.pos.xy = rect.zw, stream.Append(o);
 }
 float4 frag(FragInput i) : SV_Target {
 	return RenderTile(i.color, i.uv);

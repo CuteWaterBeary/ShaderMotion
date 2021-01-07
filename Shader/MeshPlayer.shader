@@ -5,17 +5,17 @@ Properties {
 	_MainTex ("MainTex", 2D) = "white" {}
 	_Color ("Color", Color) = (1,1,1,1)
 
-	[Header(Clipping)]
+	[Header(Culling)]
 	[Enum(UnityEngine.Rendering.CullMode)] _Cull("Face Culling", Float) = 2
 	[Toggle(_ALPHATEST_ON)] _AlphaTest("Alpha Test", Float) = 0
 	_Cutoff ("Alpha Cutoff", Range(0, 1)) = 0
 
 	[Header(Motion)]
-	[NoScaleOffset] _MotionDec ("MotionDec", 2D) = "black" {}
-	[NoScaleOffset] _Bone ("Bone", 2D) = "black" {}
-	[NoScaleOffset] _Shape ("Shape", 2D) = "black" {}
-	[ToggleUI] _ApplyScale ("ApplyScale", Float) = 1
-	_Layer ("Layer", Float) = 0
+	[NoScaleOffset] _MotionDec ("MotionDec (decoded motion texture)", 2D) = "black" {}
+	[HideInInspector] _Bone ("Bone", 2D) = "black" {}
+	[HideInInspector] _Shape ("Shape", 2D) = "black" {}
+	[ToggleUI] _ApplyScale ("ApplyScale (resize avatar to fit encoded scale)", Float) = 1
+	_Layer ("Layer (location of motion stripe)", Float) = 0
 	_RotationTolerance ("RotationTolerance", Range(0, 1)) = 0.1
 }
 SubShader {
