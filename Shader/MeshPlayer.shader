@@ -29,9 +29,6 @@ CGPROGRAM
 #pragma fragment frag
 #pragma shader_feature _ALPHATEST_ON
 #pragma multi_compile_instancing
-#if defined(SHADER_API_GLES3)
-	#define UNITY_COLORSPACE_GAMMA
-#endif
 
 #include <UnityCG.cginc>
 #include "MeshPlayer.hlsl"
@@ -71,7 +68,7 @@ float _Cutoff;
 
 float4 frag(FragInput i) : SV_Target {
 	float4 color = tex2D(_MainTex, i.tex) * _Color;
-	#ifdef _ALPHATEST_ON
+	#if defined(_ALPHATEST_ON)
 		if(color.a <= _Cutoff)
 			discard;
 	#endif
@@ -80,8 +77,9 @@ float4 frag(FragInput i) : SV_Target {
 	float ndl = dot(normal, float3(0,1,0));
 	// shadow by saturation
 	float3 shadow = lerp(color.rgb, 1, saturate(ndl+1));
-	#if SHADER_API_MOBILE
+	#if defined(SHADER_API_GLES3)
 		color.rgb *= shadow;
+		color.rgb = LinearToGamma(color.rgb);
 		return color;
 	#endif
 

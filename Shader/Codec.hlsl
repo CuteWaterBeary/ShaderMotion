@@ -1,13 +1,13 @@
 //// sRGB linear color <-> sRGB gamma color ////
-half3 EncodeGamma(half3 color) {
+half3 LinearToGamma(half3 color) {
 	return color <= 0.0031308 ? 12.92 * color : 1.055 * pow(color, 1/2.4) - 0.055;
 }
-half3 DecodeGamma(half3 color) {
+half3 GammaToLinear(half3 color) {
 	return color <= 0.04045 ? color / 12.92 : pow(color/1.055 + 0.055/1.055, 2.4);
 }
 #if defined(UNITY_COLORSPACE_GAMMA)
-#define EncodeGamma(x) (x)
-#define DecodeGamma(x) (x)
+#define LinearToGamma(x) (x)
+#define GammaToLinear(x) (x)
 #endif
 //// real number <-> render texture color ////
 half4 EncodeBufferSnorm(float x) {

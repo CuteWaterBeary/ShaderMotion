@@ -22,13 +22,13 @@ float3 sampleSnorm3(uint idx) {
 }
 float3 mergeSnorm3(float3 f0, float3 f1) {
 	float o[3] = {0,0,0};
-	UNITY_LOOP // save instruction
+	UNITY_LOOP // fewer instructions
 	for(uint K=0; K<3; K++)
 		o[K] = DecodeVideoFloat(f0[K], f1[K]);
 	return float3(o[0], o[1], o[2]);
 }
 void TransformBone(inout float3x3 mat, float4 data) {
-	mat = mul(fromSwingTwist(UNITY_PI * sampleSnorm3(uint(data.w)) * data.xyz), mat);
+	mat = mul(swingTwistRotate(UNITY_PI * sampleSnorm3(uint(data.w)) * data.xyz), mat);
 }
 void TransformRoot(inout float3x3 mat, float4 data) {
 	bool highRange = true;
@@ -63,7 +63,7 @@ void TransformRoot(inout float3x3 mat, float4 data) {
 	mat.c0 += pos;
 }
 float GetShapeWeight(float data) {
-	return sampleSnorm(uint(data));
+	return saturate(sampleSnorm(uint(data)));
 }
 
 Texture2D _Bone;

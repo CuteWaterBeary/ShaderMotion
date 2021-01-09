@@ -18,10 +18,18 @@ float4 GetTileY(uint4 idx) {
 static float4 layerRect = float4(0, 0, GetTileRect(134).z, 1);
 //// tile uv <-> color ////
 SamplerState LinearClamp, PointClamp;
-float4 RenderTile(ColorTile c, float2 uv) {
-	return float4(DecodeGamma(c[floor(saturate(uv.x) * ColorTileLen)]), 1);
+half4 RenderTile(ColorTile c, float2 uv) {
+	half3 color = c[floor(saturate(uv.x) * ColorTileLen)];
+	#if !defined(SHADER_API_GLES3)
+		color = GammaToLinear(color);
+	#endif
+	return half4(color, 1);
 }
 void SampleTile(out ColorTile c, Texture2D_half tex, float4 rect) {
-	UNITY_UNROLL for(int i=0; i<int(ColorTileLen); i++)
-		c[i] = EncodeGamma((half3)tex.SampleLevel(LinearClamp, lerp(rect.xy, rect.zw, float2((i+0.5)/ColorTileLen, 0.5)), 0));
+	UNITY_UNROLL for(int i=0; i<int(ColorTileLen); i++) {
+		c[i] = tex.SampleLevel(LinearClamp, lerp(rect.xy, rect.zw, float2((i+0.5)/ColorTileLen, 0.5)), 0);
+		#if !defined(SHADER_API_GLES3)
+			c[i] = LinearToGamma(c[i]);
+		#endif
+	}
 }

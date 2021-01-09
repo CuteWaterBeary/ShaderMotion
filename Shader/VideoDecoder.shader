@@ -9,9 +9,6 @@ CGPROGRAM
 #pragma target 4.0
 #pragma vertex vert
 #pragma fragment frag
-#if defined(SHADER_API_GLES3)
-	#define UNITY_COLORSPACE_GAMMA
-#endif
 
 #include "UnityCustomRenderTexture.cginc"
 #include "Rotation.hlsl"
@@ -35,7 +32,7 @@ struct FragInput {
 void vert(appdata_customrendertexture i, out FragInput o) {
 	// only use uv lookup table to keep it simple
 	o.uv = CustomRenderTextureVertexShader(i).localTexcoord.xy;
-	o.pos = float4(o.uv*2-1, 0, 1);
+	o.pos = float4(o.uv*2-1, UNITY_NEAR_CLIP_VALUE, 1);
 #if UNITY_UV_STARTS_AT_TOP
 	o.pos.y *= -1;
 #endif
