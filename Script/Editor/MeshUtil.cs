@@ -41,7 +41,7 @@ public class MeshUtil {
 											Matrix4x4[] srcBindposes, Matrix4x4[] dstBindposes,
 											BoneWeight[] boneWeights, int[] boneMap) {
 		Debug.Assert(srcBones.Length == srcBindposes.Length && dstBones.Length == dstBindposes.Length);
-		var transforms = new Matrix4x4[boneWeights.Length];
+		var vertMatrices = new Matrix4x4[boneWeights.Length];
 		for(int v=0; v<boneWeights.Length; v++) {
 			var bw = UnpackBoneWeight(boneWeights[v]);
 			var weights = new float[dstBones.Length];
@@ -75,10 +75,10 @@ public class MeshUtil {
 			foreach(var dstBone in Enumerable.Range(0, dstBones.Length).OrderBy(i => -weights[i]).Take(4))
 				bw[idx++] = (dstBone, weights[dstBone]);
 
-			transforms[v] = srcMatSum == dstMatSum ? Matrix4x4.identity : dstMatSum.inverse * srcMatSum;
+			vertMatrices[v] = srcMatSum == dstMatSum ? Matrix4x4.identity : dstMatSum.inverse * srcMatSum;
 			boneWeights[v] = PackBoneWeight(bw);
 		}
-		return transforms;
+		return vertMatrices;
 	}
 	public static Matrix4x4[] RetargetBindWeights(Transform[] srcBones, Transform[] dstBones,
 													Matrix4x4[] srcBindposes, Matrix4x4[] dstBindposes,

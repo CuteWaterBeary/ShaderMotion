@@ -38,9 +38,9 @@ UNITY_INSTANCING_BUFFER_START(Props)
 UNITY_INSTANCING_BUFFER_END(Props)
 
 struct FragInput {
-	float2 tex : TEXCOORD0;
+	half2  tex : TEXCOORD0;
 	float3 vertex : TEXCOORD1;
-	float3 normal : TEXCOORD2;
+	half3  normal : TEXCOORD2;
 	float4 pos : SV_Position;
 	UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -63,31 +63,31 @@ void vert(VertInputSkin i, out FragInput o) {
 #include <Lighting.cginc>
 
 sampler2D _MainTex;
-float4 _Color;
-float _Cutoff;
+half4 _Color;
+half _Cutoff;
 
-float4 frag(FragInput i) : SV_Target {
-	float4 color = tex2D(_MainTex, i.tex) * _Color;
+half4 frag(FragInput i) : SV_Target {
+	half4 color = tex2D(_MainTex, i.tex) * _Color;
 	#if defined(_ALPHATEST_ON)
 		if(color.a <= _Cutoff)
 			discard;
 	#endif
 
-	float3 normal = normalize(i.normal);
-	float ndl = dot(normal, float3(0,1,0));
+	half3 normal = normalize(i.normal);
+	half ndl = dot(normal, float3(0,1,0));
 	// shadow by saturation
-	float3 shadow = lerp(color.rgb, 1, saturate(ndl+1));
+	half3 shadow = lerp(color.rgb, 1, saturate(ndl+1));
 	#if defined(SHADER_API_GLES3)
 		color.rgb *= shadow;
 		color.rgb = LinearToGamma(color.rgb);
 		return color;
 	#endif
 
-	float3 light = _LightColor0.rgb + ShadeSH9(float4(0,1,0,1));
+	half3 light = _LightColor0.rgb + ShadeSH9(float4(0,1,0,1));
 	light /= max(max(light.x, light.y), max(light.z, 1));
 	// rim lighting
-	float ndv = dot(normal, normalize(_WorldSpaceCameraPos - i.vertex));
-	float rim = pow(1-abs(ndv), exp2(lerp(3,0,0.1)));
+	half ndv = dot(normal, normalize(_WorldSpaceCameraPos - i.vertex));
+	half rim = pow(1-abs(ndv), exp2(lerp(3,0,0.1)));
 	rim = saturate(rim/0.074) * 0.2;
 	color.rgb *= (rim*color.rgb+1) * shadow * light;
 	return color;

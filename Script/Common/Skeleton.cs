@@ -45,7 +45,7 @@ public class Skeleton {
 			if(bones[i] && parents[i] < 0) {
 				axes[i].postQ *= Quaternion.Inverse(axes[i].preQ);
 				axes[i].preQ = Quaternion.Inverse(bones[i].parent.rotation) * root.rotation;
-				axes[i].scale = Vector3.one;
+				axes[i].sign = Vector3.one;
 			} 
 	}
 	public static float GetSkeletonPoseHipsHeight(Animator animator) {
