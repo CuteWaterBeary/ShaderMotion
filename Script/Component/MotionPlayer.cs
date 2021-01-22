@@ -32,10 +32,9 @@ public class MotionPlayer : MonoBehaviour  {
 				.Where(smr => (smr.sharedMesh?.blendShapeCount??0) > 0).FirstOrDefault();
 
 		skeleton = new Skeleton(animator);
-		var appr = new Appearance(shapeRenderer?.sharedMesh, true);
-		var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout,
-										appr, MotionLayout.defaultExprLayout);
-		decoder = new MotionDecoder(skeleton, appr, layout, resolution.x, resolution.y,
+		var morph = new Morph(animator);
+		var layout = new MotionLayout(skeleton, morph);
+		decoder = new MotionDecoder(skeleton, morph, layout, resolution.x, resolution.y,
 			tileWidth:tileSize.x, tileHeight:tileSize.y, tileDepth:tileSize.z, tileRadix:tileRadix);
 	}
 	void OnDisable() {
@@ -94,9 +93,9 @@ public class MotionPlayer : MonoBehaviour  {
 		if(shapeRenderer) {
 			var mesh = shapeRenderer.sharedMesh;
 			foreach(var kv in decoder.shapes) {
-				var shape = mesh.GetBlendShapeIndex(kv.Key);
-				if(shape >= 0)
-					shapeRenderer.SetBlendShapeWeight(shape,
+				var idx = mesh.GetBlendShapeIndex(kv.Key);
+				if(idx >= 0)
+					shapeRenderer.SetBlendShapeWeight(idx,
 						Mathf.Round(Mathf.Clamp01(kv.Value)*100/shapeWeightEps)*shapeWeightEps);
 			}
 		}

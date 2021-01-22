@@ -9,11 +9,8 @@ static const float _PositionScale = 2;
 
 sampler2D_float _MotionDec;
 static float4 _MotionDec_ST;
-float sampleSnorm(uint idx) {
-	float2 uv = float2(GetTileX(idx).x, GetTileY(idx).x) * _MotionDec_ST.xy + _MotionDec_ST.zw;
-	return DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(uv, 0, 0)));
-}
 float3 sampleSnorm3(uint idx) {
+	// NOTE: the tile for an unused component may lie in a different line! 
 	float3 u = GetTileX(idx+uint4(0,1,2,3)) * _MotionDec_ST.x + _MotionDec_ST.z;
 	float3 v = GetTileY(idx+uint4(0,1,2,3)) * _MotionDec_ST.y + _MotionDec_ST.w;
 	return float3(	DecodeBufferSnorm(tex2Dlod(_MotionDec, float4(u[0], v[0], 0, 0))),
@@ -62,11 +59,8 @@ void TransformRoot(float4 data, inout float3x3 mat) {
 	mat = mul(rot, mat);
 	mat.c0 += pos;
 }
-void DeformVertex(float4 data, inout float3 vertex) {
-	// data == {offset, idx + sign/4}
-	uint  idx = floor(data.w+0.5);
-	float sign = frac(data.w+0.5)*4-2;
-	vertex += data.xyz * saturate(sampleSnorm(idx)*sign);
+float2 GetBlendCoord(float4 data) {
+	return sampleSnorm3(uint(data.w)).xy;
 }
 
 Texture2D_float _Bone;

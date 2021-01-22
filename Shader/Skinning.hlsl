@@ -3,8 +3,9 @@ static const uint maxRigging = 4;
 static const uint maxHierarchy = 16; // 11 for standard skeleton
 void TransformBone(float4 data, inout float3x3 mat);
 void TransformRoot(float4 data, inout float3x3 mat);
-void DeformVertex (float4 data, inout float3 vertex);
+float2 GetBlendCoord(float4 data);
 
+SamplerState LinearClampSampler;
 struct VertInputSkin {
 	float3 vertex : POSITION;
 	float3 normal : NORMAL;
@@ -21,7 +22,9 @@ void SkinVertex(inout VertInputSkin i, Texture2D boneTex, Texture2D shapeTex) {
 	for(uint K=0; K<maxMorphing; K++) {
 		if(K >= shape.z)
 			break;
-		DeformVertex(shapeTex.Load(uint3(shape.x+K, shape.y, 0)), i.vertex);
+		uint2 loc = {shape.x+K*3, shape.y};
+		float2 coord = GetBlendCoord(shapeTex.Load(uint3(loc.xy, 0)));
+		i.vertex += shapeTex.SampleLevel(LinearClampSampler, (loc + 0.5 + coord.xy) / size.xy, 0).xyz;
 	}
 	// rigging
 	float3 vertex = 0, normal = 0, tangent = 0;

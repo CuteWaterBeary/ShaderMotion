@@ -7,15 +7,15 @@ using AsyncGPUReadbackRequest = UnityEngine.Rendering.AsyncGPUReadbackRequest;
 namespace ShaderMotion {
 public class MotionDecoder {
 	public readonly Skeleton skeleton;
-	public readonly Appearance appearance;
+	public readonly Morph morph;
 	public readonly MotionLayout layout;
 	public readonly Dictionary<string, float> shapes;
 	public readonly (Vector3 t, Quaternion q, float s)[] motions;
 	private readonly Vector3Int tileCount;
-	public MotionDecoder(Skeleton skeleton, Appearance appearance, MotionLayout layout, int width=80, int height=45,
+	public MotionDecoder(Skeleton skeleton, Morph morph, MotionLayout layout, int width=80, int height=45,
 						int tileWidth=2, int tileHeight=1, int tileDepth=3, int tileRadix=3) {
 		this.skeleton = skeleton;
-		this.appearance = appearance;
+		this.morph = morph;
 		this.layout = layout;
 		this.shapes = new Dictionary<string, float>();
 		this.motions = new (Vector3,Quaternion,float)[skeleton.bones.Length];
@@ -48,12 +48,13 @@ public class MotionDecoder {
 		var vec = new Vector3[5];
 		for(int b=0; b<skeleton.bones.Length; b++) {
 			System.Array.Clear(vec, 0, vec.Length);
-			foreach(var (axis, index) in layout.bones[b].Select((x,y) => (y,x))) if(index >= 0)
-				vec[axis/3][axis%3] = SampleTile(index);
+			for(int axis=0; axis<layout.bones[b].Length; axis++)
+				if(layout.bones[b][axis] >= 0)
+					vec[axis/3][axis%3] = SampleTile(layout.bones[b][axis]);
 
 			if(layout.bones[b].Length <= 3) {
 				var swingTwist = vec[0] * 180;
-				motions[b] = (swingTwist, HumanAxes.SwingTwist(Vector3.Scale(skeleton.axes[b].scale, swingTwist)), float.NaN);
+				motions[b] = (swingTwist, HumanAxes.SwingTwist(Vector3.Scale(skeleton.axes[b].sign, swingTwist)), float.NaN);
 			} else {
 				for(int j=0; j<3; j++)
 					vec[2][j] = ShaderImpl.DecodeVideoFloat(vec[1][j], vec[2][j], tileCount.z);
@@ -66,12 +67,12 @@ public class MotionDecoder {
 		}
 
 		shapes.Clear();
-		for(int e=0; e<appearance.exprShapes.Length; e++)
-			foreach(var s in appearance.exprShapes[e]) {
-				float wt;
-				shapes.TryGetValue(s.Key, out wt);
-				shapes[s.Key] = wt + SampleTile(layout.exprs[e]) * s.Value;
-			}
+		for(int b=0; b<layout.blends.Length; b++) {
+			var slot = layout.blends[b];
+			var blend = morph.blends[b];
+			if(slot >= 0 && blend != null)
+				blend.Sample(new Vector2(SampleTile(slot), SampleTile(slot+1)), shapes, writeDefault:true);
+		}
 	}
 }
 }

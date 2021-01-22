@@ -7,7 +7,7 @@ using UnityEditor;
 
 namespace ShaderMotion {
 public class MeshRecorder {
-	public static Transform[] CreateRecorderMesh(Mesh mesh, Skeleton skel, Appearance appr, MotionLayout layout, (Mesh,Transform[]) source, bool lineMesh=false) {
+	public static Transform[] CreateRecorderMesh(Mesh mesh, Skeleton skel, Morph morph, MotionLayout layout, (Mesh,Transform[]) source, bool lineMesh=false) {
 		var (srcMesh, srcBones) = source;
 
 		var boneIdx   = new int[skel.bones.Length];
@@ -54,40 +54,39 @@ public class MeshRecorder {
 				* Matrix4x4.Rotate(Quaternion.Inverse(skel.bones[p].rotation) * skel.bones[b].parent.rotation
 									* skel.axes[b].preQ);
 
-			foreach(var (axis, index) in layout.bones[b].Select((x,y) => (y,x))) if(index >= 0) {
+			foreach(var (axis, slot) in layout.bones[b].Select((x,y) => (y,x))) if(slot >= 0) {
 				vertices.Add(mat0.GetColumn(3));
 				normals. Add(mat0.GetColumn(1));
 				tangents.Add(mat0.GetColumn(2));
-				uvs     .Add(new Vector2(index, 0));
+				uvs     .Add(new Vector2(slot, 0));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[p < 0 ? b : p], weight0=1});
 
 				vertices.Add(mat1.GetColumn(3));
 				normals. Add(mat1.GetColumn(1));
 				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(axis, axis < 3 ? skel.axes[b].scale[axis] : 0));
+				uvs     .Add(new Vector2(axis, axis < 3 ? skel.axes[b].sign[axis] : 0));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[b], weight0=1});
 			}
 		}
-		var exprVertex = new int[appr.exprShapes.Length];
+		var slotToVert = new Dictionary<int, int>();
 		{
-			int axis = 7, scale = 1;
 			var mat1 = (Matrix4x4.Scale((skel.root.worldToLocalMatrix
 				* skel.bones[0].localToWorldMatrix).lossyScale/(skel.humanScale*1e-4f)) * bindposes[boneIdx[0]]).inverse
 				* Matrix4x4.Rotate(skel.axes[0].postQ);
 
-			foreach(var (e, index) in layout.exprs.Select((x,y) => (y,x))) if(index >= 0) {
-				exprVertex[e] = vertices.Count + 1;
+			foreach(var slot in layout.blends.Where(x => x >= 0).SelectMany(x => new[]{x, x+1})) {
+				slotToVert[slot] = vertices.Count + 1;
 
 				vertices.Add(mat1.GetColumn(3));
 				normals. Add(mat1.GetColumn(1));
 				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(index, 0));
+				uvs     .Add(new Vector2(slot, 0));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[0], weight0=1});
 
 				vertices.Add(mat1.GetColumn(3));
 				normals. Add(mat1.GetColumn(1));
 				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(axis, scale));
+				uvs     .Add(new Vector2(7/*axis*/, 1/*sign*/));
 				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[0], weight0=1});
 			}
 		}
@@ -140,23 +139,25 @@ public class MeshRecorder {
 		const float PositionScale = 2;
 		var srcDV = new Vector3[srcMesh?.vertexCount??0];
 		var dstDV = new Vector3[vertices.Count];
-		var shapes = Enumerable.Range(0, srcMesh?.blendShapeCount??0).Select(i => srcMesh.GetBlendShapeName(i))
-							.Concat(appr.exprShapes.SelectMany(l => l.Select(s => s.Key))).Distinct();
-		foreach(var shape in shapes) {
+		var shapeNames = Enumerable.Range(0, srcMesh?.blendShapeCount??0).Select(i => srcMesh.GetBlendShapeName(i))
+							.Concat(morph.controls.Keys).Distinct();
+		foreach(var name in shapeNames) {
 			System.Array.Clear(dstDV, 0, dstDV.Length);
-			var shapeIndex = srcMesh?.GetBlendShapeIndex(shape) ?? -1;
-			if(shapeIndex >= 0) {
-				srcMesh.GetBlendShapeFrameVertices(shapeIndex, // TODO: only last frame is handled
-					srcMesh.GetBlendShapeFrameCount(shapeIndex)-1, srcDV, null, null);
-				System.Array.Copy(srcDV, 0, dstDV, 0, srcDV.Length);
-			}
-			for(int i=0; i<appr.exprShapes.Length; i++)
-				foreach(var s in appr.exprShapes[i])
-					if(s.Key == shape) {
-						var v = exprVertex[i];
-						dstDV[v] += normals[v]*PositionScale * s.Value;
-					}
-			mesh.AddBlendShapeFrame(shape, 100, dstDV, null, null);
+			var shapes = new Dictionary<string, float>();
+			if(morph.controls.ContainsKey(name)) {
+				var (b, coord) = morph.controls[name];
+				var slot = layout.blends[b];
+				var blend = morph.blends[b];
+				for(int axis=0; axis<2; axis++)
+					dstDV[slotToVert[slot+axis]] += normals[slotToVert[slot+axis]]*(coord[axis]*PositionScale);
+				if(blend != null) // use blended shapes
+					blend.Sample(coord, shapes);
+			} else // otherwise use existing shapes
+				shapes[name] = 1f; 
+
+			if(srcMesh)
+				Morph.GetBlendShapeVertices(srcMesh, shapes, dstDV, srcDV);
+			mesh.AddBlendShapeFrame(name, 100, dstDV, null, null);
 		}
 		return bones.ToArray();
 	}
@@ -185,13 +186,15 @@ public class MeshRecorder {
 			recorder.sharedMaterials = new Material[]{Resources.Load<Material>("MeshRecorder")};
 		}
 		{
-			var skeleton = new Skeleton(animator);
-			var appr = new Appearance(smr?.sharedMesh, false);
-			var layout = new MotionLayout(skeleton, MotionLayout.defaultHumanLayout,
-											appr, MotionLayout.defaultExprLayout);
+			var mesh = recorder.sharedMesh;
+			mesh.Clear(); // avoid polluting blendshapes
+			
+			var skel = new Skeleton(animator);
+			var morph = new Morph(animator);
+			var layout = new MotionLayout(skel, morph);
+			var bones = CreateRecorderMesh(mesh, skel, morph, layout, (smr?.sharedMesh, smr?.bones), lineMesh:lineMesh);
 
-			recorder.bones = CreateRecorderMesh(recorder.sharedMesh, skeleton, appr, layout,
-												(smr?.sharedMesh, smr?.bones), lineMesh:lineMesh);
+			recorder.bones = bones;
 			recorder.sharedMaterials = (smr?.sharedMaterials ?? new Material[0]).Append(
 				recorder.sharedMaterials.LastOrDefault()).ToArray();
 			recorder.localBounds = recorder.sharedMesh.bounds;

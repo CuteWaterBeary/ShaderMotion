@@ -6,12 +6,12 @@ using System.Text.RegularExpressions;
 namespace ShaderMotion {
 public class MotionLayout {
 	public readonly int[][] bones;
-	public readonly int[] exprs;
-	public MotionLayout(Skeleton skeleton, (int, int, int)[] boneLayout, Appearance appr, (int,int)[] exprLayout) {
+	public readonly int[] blends;
+	public MotionLayout(Skeleton skeleton, Morph morph, (int,int,int)[] boneLayout=null, (int,int,int)[] blendLayout=null) {
 		bones = new int[skeleton.bones.Length][];
-		int index = 0;
-		foreach(var (startIndex, length, bone) in boneLayout) {
-			index = startIndex >= 0 ? startIndex : index;
+		int index = -1;
+		foreach(var (start, length, bone) in boneLayout??defaultHumanLayout) {
+			index = start >= 0 ? start : index;
 			var endIndex = index + length;
 			if(length <= 3) {
 				bones[bone] = Enumerable.Repeat(-1, 3).ToArray();
@@ -24,28 +24,27 @@ public class MotionLayout {
 			}
 			Debug.Assert(index == endIndex);
 		}
-		exprs = Enumerable.Range(-1, appr.exprShapes.Length).ToArray();
-		foreach(var (startIndex, expr) in exprLayout)
-			exprs[expr] = startIndex;
+		blends = Enumerable.Repeat(-1, morph.blends.Length).ToArray();
+		index = -1;
+		foreach(var (start, length, blend) in blendLayout??defaultBlendLayout) {
+			index = start >= 0 ? start : index;
+			blends[blend] = index;
+			index += length;
+		}
 	}
 
-	public static (int, int)[] defaultExprLayout = new []{
-		(80, 0),
-		(81, 1),
-		(82, 2),
-		(83, 3),
-		(84, 4),
+	public static (int, int, int)[] defaultBlendLayout = new []{
+		( 80, 2, (int)BlendSpacePreset.LipSync),
+		( 88, 2, (int)BlendSpacePreset.Emotion),
 	};
 	public static (int, int, int)[] defaultHumanLayout = new []{
 		// roughly ordered by HumanTrait.GetBoneDefaultHierarchyMass
-
 		(  0,12, (int)HumanBodyBones.Hips),
 		( -1, 3, (int)HumanBodyBones.Spine),
 		( -1, 3, (int)HumanBodyBones.Chest),
 		( -1, 3, (int)HumanBodyBones.UpperChest),
 		( -1, 3, (int)HumanBodyBones.Neck),
 		( -1, 3, (int)HumanBodyBones.Head),
-
 		( 27, 3, (int)HumanBodyBones.LeftUpperLeg),
 		( -1, 3, (int)HumanBodyBones.RightUpperLeg),
 		( -1, 3, (int)HumanBodyBones.LeftLowerLeg),
@@ -61,14 +60,12 @@ public class MotionLayout {
 		( -1, 3, (int)HumanBodyBones.RightLowerArm),
 		( -1, 3, (int)HumanBodyBones.LeftHand),
 		( -1, 3, (int)HumanBodyBones.RightHand),
-
 		( 69, 1, (int)HumanBodyBones.LeftToes), // toe > eye in mass
 		( -1, 1, (int)HumanBodyBones.RightToes),
-		( -1, 2, (int)HumanBodyBones.LeftEye),
+		( -1, 2, (int)HumanBodyBones.LeftEye), // TODO: merge with lookat
 		( -1, 2, (int)HumanBodyBones.RightEye),
-		( -1, 2, (int)HumanBodyBones.Jaw),
-
-		// 77 ~ 89: reserved
+		( -1, 2, (int)HumanBodyBones.Jaw), // TODO: merge with lipsync
+		// 77~89: reserved (morph)
 
 		( 90, 2, (int)HumanBodyBones.LeftThumbProximal),
 		( -1, 1, (int)HumanBodyBones.LeftThumbIntermediate),
@@ -85,7 +82,6 @@ public class MotionLayout {
 		( -1, 2, (int)HumanBodyBones.LeftLittleProximal),
 		( -1, 1, (int)HumanBodyBones.LeftLittleIntermediate),
 		( -1, 1, (int)HumanBodyBones.LeftLittleDistal),
-
 		(110, 2, (int)HumanBodyBones.RightThumbProximal),
 		( -1, 1, (int)HumanBodyBones.RightThumbIntermediate),
 		( -1, 1, (int)HumanBodyBones.RightThumbDistal),
@@ -101,8 +97,7 @@ public class MotionLayout {
 		( -1, 2, (int)HumanBodyBones.RightLittleProximal),
 		( -1, 1, (int)HumanBodyBones.RightLittleIntermediate),
 		( -1, 1, (int)HumanBodyBones.RightLittleDistal),
-
-		// 130 ~ 144: reserved
+		// 130~144: reserved
 	};
 }
 }

@@ -25,7 +25,7 @@ public class WebExporter {
 		var tempPath = $"Temp/Compiled-{shader.name.Replace('/', '-')}.shader";
 		var text = System.IO.File.ReadAllText(tempPath);
 		var matches = re_VERTEX_FRAGMENT.Matches(text);
-		foreach (Match match in matches) {
+		foreach(Match match in matches) {
 			var vs = FixShaderSource(match.Groups[1].ToString());
 			var fs = FixShaderSource(match.Groups[2].ToString());
 			System.IO.File.WriteAllText(path, $"export default {{\nvs: `{vs}`,\nfs: `{fs}`}};");
