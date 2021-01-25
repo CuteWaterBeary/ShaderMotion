@@ -71,8 +71,13 @@ public class MeshRecorder {
 		var slotToVert = new Dictionary<int, int>();
 		{
 			var mat1 = (Matrix4x4.Scale((skel.root.worldToLocalMatrix
-				* skel.bones[0].localToWorldMatrix).lossyScale/(skel.humanScale*1e-4f)) * bindposes[boneIdx[0]]).inverse
+				* skel.bones[0].localToWorldMatrix).lossyScale) * bindposes[boneIdx[0]]).inverse
 				* Matrix4x4.Rotate(skel.axes[0].postQ);
+
+			// scale the matrix as small as possible, so it's invisible in outline view
+			const float eps = 2e-5f; // NOTE: unity seems to discard blendshape with |delta| < 1e-5 !
+			var scale = eps / Mathf.Max(mat1.GetColumn(0).magnitude, mat1.GetColumn(1).magnitude, mat1.GetColumn(2).magnitude);
+			mat1 *= Matrix4x4.Scale(scale * Vector3.one);
 
 			foreach(var slot in layout.blends.Where(x => x >= 0).SelectMany(x => new[]{x, x+1})) {
 				slotToVert[slot] = vertices.Count + 1;
