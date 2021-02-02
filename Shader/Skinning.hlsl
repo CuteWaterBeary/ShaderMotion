@@ -17,12 +17,12 @@ struct VertInputSkin {
 void SkinVertex(inout VertInputSkin i, Texture2D boneTex, Texture2D shapeTex) {
 	// morphing
 	uint2 size; shapeTex.GetDimensions(size.x, size.y);
-	uint2 range = round(i.texcoord.zw); // fix mesh-compression precision
-	uint3 shape = uint3(range.x%size.x, range.x/size.x, range.y);
+	uint2 range = round(i.texcoord.zw); // length goes first so its default is 0
+	uint2 loc0  = uint2(range.y%size.x, range.y/size.x);
 	for(uint K=0; K<maxMorphing; K++) {
-		if(K >= shape.z)
+		if(K >= range.x)
 			break;
-		uint2 loc = {shape.x+K*3, shape.y};
+		uint2 loc = uint2(loc0.x+K*3, loc0.y);
 		float2 coord = GetBlendCoord(shapeTex.Load(uint3(loc.xy, 0)));
 		i.vertex += shapeTex.SampleLevel(LinearClampSampler, (loc + 0.5 + coord.xy) / size.xy, 0).xyz;
 	}

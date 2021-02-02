@@ -67,11 +67,12 @@ half4 _Color;
 half _Cutoff;
 
 half4 frag(FragInput i) : SV_Target {
-	half4 color = tex2D(_MainTex, i.tex) * _Color;
+	half4 color = tex2D(_MainTex, i.tex);
 	#if defined(_ALPHATEST_ON)
-		if(color.a <= _Cutoff)
+		if(color.a < _Cutoff)
 			discard;
 	#endif
+	color *= _Color;
 
 	half3 normal = normalize(i.normal);
 	half ndl = dot(normal, float3(0,1,0));

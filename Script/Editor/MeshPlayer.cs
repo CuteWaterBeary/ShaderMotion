@@ -53,7 +53,7 @@ class MeshPlayerGen {
 				for(int i=0; i<3; i++)
 				for(int j=0; j<3; j++)
 					colors[pos+k*3+i+j*width] = (Color)blends[v][k*9+i+j*3];
-				ranges[v] = new Vector2(pos+1+width, cnt);
+				ranges[v] = new Vector2(cnt, pos+1+width); // length goes first so its default is 0
 			}
 		colors.AddRange(Enumerable.Repeat(default(Color), (width - colors.Count%width)%width));
 		return ranges;
