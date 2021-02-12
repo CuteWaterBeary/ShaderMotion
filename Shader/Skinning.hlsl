@@ -1,6 +1,6 @@
-static const uint maxMorphing = 16;
-static const uint maxRigging = 4;
-static const uint maxHierarchy = 16; // 11 for standard skeleton
+static const uint maxMorphInfluence = 16;
+static const uint maxBoneInfluence = 4;
+static const uint maxBoneDepth = 16; // standard humanoid only needs 11
 void TransformBone(float4 data, inout float3x3 mat);
 void TransformRoot(float4 data, inout float3x3 mat);
 float2 GetBlendCoord(float4 data);
@@ -15,20 +15,20 @@ struct VertInputSkin {
 	UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 void SkinVertex(inout VertInputSkin i, Texture2D boneTex, Texture2D shapeTex) {
-	// morphing
+	// morph target animation
 	uint2 size; shapeTex.GetDimensions(size.x, size.y);
 	uint2 range = round(i.texcoord.zw); // length goes first so its default is 0
 	uint2 loc0  = uint2(range.y%size.x, range.y/size.x);
-	for(uint K=0; K<maxMorphing; K++) {
+	for(uint K=0; K<maxMorphInfluence; K++) {
 		if(K >= range.x)
 			break;
 		uint2 loc = uint2(loc0.x+K*3, loc0.y);
 		float2 coord = GetBlendCoord(shapeTex.Load(uint3(loc.xy, 0)));
 		i.vertex += shapeTex.SampleLevel(LinearClampSampler, (loc + 0.5 + coord.xy) / size.xy, 0).xyz;
 	}
-	// rigging
+	// skeletal animation
 	float3 vertex = 0, normal = 0, tangent = 0;
-	for(uint J=0; J<maxRigging; J++) {
+	for(uint J=0; J<maxBoneInfluence; J++) {
 		// bone + weight/2 == i.boneWeights[J]
 		uint  bone  = floor(i.boneWeights[J]+0.25);
 		float weight = frac(i.boneWeights[J]+0.25)*2-0.5;
@@ -37,16 +37,20 @@ void SkinVertex(inout VertInputSkin i, Texture2D boneTex, Texture2D shapeTex) {
 
 		float4 data4[1];
 		float3x3 mat = transpose(float3x3(i.vertex.xyz, i.normal.xyz, i.tangent.xyz));
-		for(uint I=0; I<4*maxHierarchy; I+=4) {
-			float4x4 data = transpose(float4x4(
-				boneTex.Load(uint3(I, bone, 0), uint2(+0, 0)),
-				boneTex.Load(uint3(I, bone, 0), uint2(+1, 0)),
-				boneTex.Load(uint3(I, bone, 0), uint2(+2, 0)),
-				boneTex.Load(uint3(I, bone, 0), uint2(+3, 0))));
+		for(uint I=0; I<4*maxBoneDepth; I+=4) {
+			#if !defined(UNITY_COMPILER_HLSLCC)
+				float4x4 data = transpose(float4x4(
+					boneTex.Load(uint3(I, bone, 0), uint2(+0, 0)), boneTex.Load(uint3(I, bone, 0), uint2(+1, 0)),
+					boneTex.Load(uint3(I, bone, 0), uint2(+2, 0)), boneTex.Load(uint3(I, bone, 0), uint2(+3, 0))));
+			#else // hlslcc bug: texelFetchOffset generates ivec3(x, x)
+				float4x4 data = transpose(float4x4(
+					boneTex.Load(uint3(I+0, bone, 0)), boneTex.Load(uint3(I+1, bone, 0)),
+					boneTex.Load(uint3(I+2, bone, 0)), boneTex.Load(uint3(I+3, bone, 0))));
+			#endif
 			mat = mul((float3x3)data, mat);
 			mat._11_21_31 += data._14_24_34;
 			if(data._44 < 0) {
-				data4[0] = data._41_42_43_44; // writing to temp array prevents corrupting for-loop in GLES
+				data4[0] = data._41_42_43_44; // writing to temp array prevents hlslcc turning for-loop into while
 				break;
 			}
 			TransformBone(data._41_42_43_44, mat);

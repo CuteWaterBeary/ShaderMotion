@@ -120,6 +120,7 @@ public class AnimRecorder {
 		getProxyCurves(clip, rootCurves, muscleCurves);
 		RemoveConstantCurves(clip);
 		SetHumanCurves(clip, rootCurves, muscleCurves);
+		// GameObjectRecorder does AnimationClip.EnsureQuaternionContinuity automatically
 
 		var settings = AnimationUtility.GetAnimationClipSettings(clip);
 		settings.loopBlendOrientation    = true; // Root Transform Rotation: Bake Into Pose

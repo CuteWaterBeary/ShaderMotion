@@ -20,7 +20,7 @@ float DecodeBufferSnorm(half4 v) {
 	float4 scale = (255.0/256) / (1 << uint4(0, 8, 16, 24)) * 4;
 	return dot(v, scale) - 1;
 }
-#if !defined(SHADER_API_MOBILE)
+#if !defined(SHADER_API_WEBGL) // only webgl doesn't support R32F buffer
 #define EncodeBufferSnorm(x) ((x).rrrr)
 #define DecodeBufferSnorm(x) ((x).r)
 #endif

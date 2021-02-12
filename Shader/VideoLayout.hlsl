@@ -20,7 +20,7 @@ static float4 layerRect = float4(0, 0, GetTileRect(134).z, 1);
 SamplerState LinearClamp, PointClamp;
 half4 RenderTile(ColorTile c, float2 uv) {
 	half3 color = c[floor(saturate(uv.x) * ColorTileLen)];
-	#if !defined(SHADER_API_GLES3)
+	#if !defined(SHADER_API_WEBGL)
 		color = GammaToLinear(color);
 	#endif
 	return half4(color, 1);
@@ -28,7 +28,7 @@ half4 RenderTile(ColorTile c, float2 uv) {
 void SampleTile(out ColorTile c, Texture2D_half tex, float4 rect) {
 	UNITY_UNROLL for(int i=0; i<int(ColorTileLen); i++) {
 		c[i] = tex.SampleLevel(LinearClamp, lerp(rect.xy, rect.zw, float2((i+0.5)/ColorTileLen, 0.5)), 0);
-		#if !defined(SHADER_API_GLES3)
+		#if !defined(SHADER_API_WEBGL)
 			c[i] = LinearToGamma(c[i]);
 		#endif
 	}

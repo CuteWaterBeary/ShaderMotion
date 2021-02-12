@@ -24,10 +24,10 @@ SubShader {
 		Tags { "LightMode"="ForwardBase" }
 		Cull [_Cull]
 CGPROGRAM
-#pragma target 4.0
+#pragma target 3.5
 #pragma vertex vert
 #pragma fragment frag
-#pragma shader_feature _ALPHATEST_ON
+#pragma shader_feature _ _ALPHATEST_ON SHADER_API_WEBGL
 #pragma multi_compile_instancing
 
 #include <UnityCG.cginc>
@@ -68,7 +68,7 @@ half _Cutoff;
 
 half4 frag(FragInput i) : SV_Target {
 	half4 color = tex2D(_MainTex, i.tex);
-	#if defined(_ALPHATEST_ON)
+	#if defined(_ALPHATEST_ON) || defined(SHADER_API_WEBGL)
 		if(color.a < _Cutoff)
 			discard;
 	#endif
@@ -78,7 +78,7 @@ half4 frag(FragInput i) : SV_Target {
 	half ndl = dot(normal, float3(0,1,0));
 	// shadow by saturation
 	half3 shadow = lerp(color.rgb, 1, saturate(ndl+1));
-	#if defined(SHADER_API_GLES3)
+	#if defined(SHADER_API_WEBGL)
 		color.rgb *= shadow;
 		color.rgb = LinearToGamma(color.rgb);
 		return color;

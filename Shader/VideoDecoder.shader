@@ -6,9 +6,10 @@ SubShader {
 	Pass {
 		Lighting Off
 CGPROGRAM
-#pragma target 4.0
+#pragma target 3.5
 #pragma vertex vert
 #pragma fragment frag
+#pragma shader_feature SHADER_API_WEBGL
 
 #include "UnityCustomRenderTexture.cginc"
 #include "Rotation.hlsl"
