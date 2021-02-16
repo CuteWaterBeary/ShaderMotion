@@ -3,16 +3,13 @@ Properties {
 	[Header(Motion)]
 	[ToggleUI] _AutoHide ("AutoHide (only visible in camera with farClip=0)", Float) = 1
 	_Layer ("Layer (location of motion stripe)", Float) = 0
-
-	[Header(Culling)]
-	[Enum(UnityEngine.Rendering.CompareFunction)] _ZTest("ZTest (choose LessEqual to fix AMD bugs)", Float) = 0
 }
 SubShader {
 	Tags { "Queue"="Overlay" "RenderType"="Overlay" "PreviewType"="Plane" }
 	Pass {
 		Tags { "LightMode"="ForwardBase" }
 		Cull Off
-		ZTest [_ZTest] ZWrite [_ZTest]
+		ZTest Always ZWrite Off
 CGPROGRAM
 #pragma target 4.0
 #pragma vertex vert
@@ -134,8 +131,7 @@ void geom(line GeomInput i[2], inout TriangleStream<FragInput> stream) {
 	#endif
 
 	float4 uv = float4(0,0,1,1);
-	// set correct depth to work around AMD out-of-order rasterization
-	o.pos.zw = float2(lerp(UNITY_NEAR_CLIP_VALUE, 0, background ? 1e-4 : 0), 1);
+	o.pos.zw = float2(UNITY_NEAR_CLIP_VALUE, 1);
 	o.uv = uv.xy, o.pos.xy = rect.xy, stream.Append(o);
 	o.uv = uv.xw, o.pos.xy = rect.xw, stream.Append(o);
 	o.uv = uv.zy, o.pos.xy = rect.zy, stream.Append(o);

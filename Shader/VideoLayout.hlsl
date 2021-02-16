@@ -19,7 +19,7 @@ static float4 layerRect = float4(0, 0, GetTileRect(134).z, 1);
 //// tile uv <-> color ////
 SamplerState LinearClamp, PointClamp;
 half4 RenderTile(ColorTile c, float2 uv) {
-	half3 color = c[floor(saturate(uv.x) * ColorTileLen)];
+	half3 color = uv.x < 0.5 ? c[0] : c[ColorTileLen-1]; // avoid dynamic indexing on varying since it breaks on AMD
 	#if !defined(SHADER_API_WEBGL)
 		color = GammaToLinear(color);
 	#endif
