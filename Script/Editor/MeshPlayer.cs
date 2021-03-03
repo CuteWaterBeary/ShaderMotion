@@ -110,12 +110,14 @@ class MeshPlayerGen {
 			var boneWeights  = srcMesh.boneWeights;
 			var vertMatrices = System.Array.ConvertAll(MeshUtil.RetargetBindWeights(
 				srcBones, skel.bones, srcMesh.bindposes.Select(x => x * objectToRoot.inverse).ToArray(), bindposes,
-				boneWeights), m => m * objectToRoot);
+				boneWeights), m => m * objectToRoot); // bake objectToRoot into vertex position
+			var vectorScale = MeshUtility.GetMeshCompression(mesh) == ModelImporterMeshCompression.Off ? 1 :
+				objectToRoot.lossyScale.x; // undo scaling to reduce precision loss on normals
 			var shapeUV = CreateShapeTex(colors, srcMesh, vertMatrices);
 			vertices.AddRange(srcMesh.vertices.Select((v,i) => vertMatrices[i].MultiplyPoint3x4(v)));
-			normals .AddRange(srcMesh.normals .Select((v,i) => vertMatrices[i].MultiplyVector(v)));
+			normals .AddRange(srcMesh.normals .Select((v,i) => vertMatrices[i].MultiplyVector(v)/vectorScale));
 			tangents.AddRange(srcMesh.tangents.Select((v,i) =>
-							new Vector4(0,0,0, v.w) + (Vector4)vertMatrices[i].MultiplyVector(v)));
+							new Vector4(0,0,0, v.w) + (Vector4)vertMatrices[i].MultiplyVector(v)/vectorScale));
 			normals .AddRange(Enumerable.Repeat(Vector3.zero, vertices.Count-normals .Count)); // pad missing vectors
 			tangents.AddRange(Enumerable.Repeat(Vector4.zero, vertices.Count-tangents.Count));
 			uvs[0].AddRange(srcMesh.uv.Select((uv, v) => new Vector4(uv.x, uv.y, shapeUV[v].x, shapeUV[v].y)));

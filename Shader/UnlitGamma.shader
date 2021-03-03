@@ -1,7 +1,8 @@
 // this is a simple unlit shader which apply GammaToLinear to texture
 Shader "Unlit/Gamma" {
 Properties {
-	_MainTex ("MainTex", 2D) = "black" {}
+	_MainTex("MainTex", 2D) = "black" {}
+	[ToggleUI] _ApplyGamma("ApplyGamma", Float) = 1
 }
 SubShader {
 	Tags { "Queue"="Geometry" "RenderType"="Opaque" }
@@ -15,6 +16,7 @@ CGPROGRAM
 
 sampler2D _MainTex;
 float4 _MainTex_ST;
+float _ApplyGamma;
 
 struct VertInput {
 	float3 vertex  : POSITION;
@@ -38,7 +40,9 @@ void vert(VertInput i, out FragInput o) {
 }
 float4 frag(FragInput i) : SV_Target {
 	float3 sample = tex2Dlod(_MainTex, float4(i.tex, 0, 0));
-	return float4(GammaToLinear(sample), 1);
+	if(_ApplyGamma)
+		sample = GammaToLinear(sample);
+	return float4(sample, 1);
 }
 ENDCG
 	}
