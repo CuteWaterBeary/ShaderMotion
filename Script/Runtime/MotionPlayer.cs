@@ -9,7 +9,7 @@ public class MotionPlayer : MonoBehaviour  {
 	public Animator animator;
 	public SkinnedMeshRenderer shapeRenderer;
 	public int layer;
-	public bool applyScale = true;
+	public float humanScale = -1;
 
 	[Header("Advanced settings")]
 	public bool applyHumanPose;
@@ -58,8 +58,9 @@ public class MotionPlayer : MonoBehaviour  {
 	private HumanPose humanPose;
 	private Vector3[] swingTwists;
 	void ApplyScale() {
-		if(applyScale)
-			skeleton.root.localScale = Vector3.one * (decoder.motions[0].s/skeleton.humanScale);
+		if(humanScale != 0)
+			skeleton.root.localScale = (humanScale > 0 ? humanScale : decoder.motions[0].s)
+				/ skeleton.humanScale * Vector3.one;
 	}
 	void ApplyHumanPose() {
 		if(poseHandler == null) {

@@ -14,7 +14,7 @@ Properties {
 	[NoScaleOffset] _MotionDec ("MotionDec (decoded motion texture)", 2D) = "black" {}
 	[HideInInspector] _Bone ("Bone", 2D) = "black" {}
 	[HideInInspector] _Shape ("Shape", 2D) = "black" {}
-	[ToggleUI] _ApplyScale ("ApplyScale (resize avatar to fit encoded scale)", Float) = 1
+	_HumanScale ("HumanScale (hips height: 0=original, -1=encoded)", Float) = -1
 	_Layer ("Layer (location of motion stripe)", Float) = 0
 	_RotationTolerance ("RotationTolerance", Range(0, 1)) = 0.1
 }
@@ -77,7 +77,7 @@ half4 frag(FragInput i) : SV_Target {
 	half3 normal = normalize(i.normal);
 	half ndl = dot(normal, float3(0,1,0));
 	// shadow by saturation
-	half3 shadow = lerp(color.rgb, 1, saturate(ndl+1));
+	half3 shadow = lerp(color.rgb*0.8, 1, saturate(ndl+1));
 	#if defined(SHADER_API_WEBGL)
 		color.rgb *= shadow;
 		color.rgb = LinearToGamma(color.rgb);

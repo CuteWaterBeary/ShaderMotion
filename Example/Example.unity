@@ -845,7 +845,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   shapeRenderer: {fileID: 0}
   layer: 0
-  applyScale: 1
+  humanScale: 0
   applyHumanPose: 0
   resolution: {x: 80, y: 45}
   tileSize: {x: 2, y: 1, z: 3}
@@ -2731,9 +2731,10 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1922235381}
-  m_Text: "6. A recorder records the root motion\r relative to\n<b>its rootBone position</b>.\r
-    A player scales the model\nto match the <b>recorded hips height</b>. It can be
-    turned off\r\nby unchecking \"ApplyScale\" in the material or behaviour"
+  m_Text: "6. The recorder records the root motion relative to\r\n<b>its rootBone
+    position</b>. The player may scale the model\r\nsize or position to accommodate
+    different hips heights.\r\nIt is configured by \"HumanScale\" in the material
+    or behaviour"
   m_OffsetZ: 0
   m_CharacterSize: 0.1
   m_LineSpacing: 1

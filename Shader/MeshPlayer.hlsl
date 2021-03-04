@@ -3,7 +3,7 @@
 #include "VideoLayout.hlsl"
 #include "Skinning.hlsl"
 
-float _ApplyScale;
+float _HumanScale;
 float _RotationTolerance;
 static const float _PositionScale = 2;
 
@@ -31,7 +31,7 @@ void TransformBone(float4 data, inout float3x3 mat) {
 }
 void TransformRoot(float4 data, inout float3x3 mat) {
 	uint  idx = -1-data.w;
-	float scaler = data.z;
+	float scale = data.z;
 
 	float3 motion[4];
 	UNITY_LOOP
@@ -47,14 +47,15 @@ void TransformRoot(float4 data, inout float3x3 mat) {
 	if(err + pow(max(length(rot.c1), length(rot.c2)) - 1, 2) > _RotationTolerance * _RotationTolerance)
 		mat.c0 = sqrt(-unity_ObjectToWorld._44); //NaN
 
-	float rlen2 = rsqrt(dot(rot.c2,rot.c2));
-	rot.c1 *= rlen2 * scaler;
-	if(!_ApplyScale) {
-		pos *= rsqrt(dot(rot.c1,rot.c1));
-		rot.c1 = normalize(rot.c1);
+	rot.c1 *= rsqrt(dot(rot.c2,rot.c2));
+	if(_HumanScale >= 0) {
+		float humanScale = _HumanScale ? _HumanScale : rcp(scale);
+		pos    *= rsqrt(dot(rot.c1,rot.c1)) * humanScale;
+		rot.c1 *= rsqrt(dot(rot.c1,rot.c1)) * humanScale;
 	}
-	rot.c2 *= rlen2 * length(rot.c1);
-	rot.c0 = cross(normalize(rot.c1), rot.c2);
+	rot.c1 *= scale;
+	rot.c0 = cross(rot.c1, normalize(rot.c2));
+	rot.c2 = normalize(rot.c2) * length(rot.c1);
 
 	mat = mul(rot, mat);
 	mat.c0 += pos;

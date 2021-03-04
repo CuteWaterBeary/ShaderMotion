@@ -47,6 +47,7 @@ Material:
     - _Cull: 2
     - _Cutoff: 0
     - _Decoded: 0
+    - _HumanScale: 0
     - _Layer: 0
     - _NearClip: 0
     - _RotationTolerance: 0.1
