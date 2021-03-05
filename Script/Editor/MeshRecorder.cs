@@ -4,191 +4,27 @@ using System.Linq;
 using Path = System.IO.Path;
 using UnityEngine;
 using UnityEditor;
+using SortingGroup = UnityEngine.Rendering.SortingGroup;
+using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
 public class MeshRecorder {
-	public static Transform[] CreateRecorderMesh(Mesh mesh, Skeleton skel, Morph morph, MotionLayout layout, (Mesh,Transform[]) source, bool lineMesh=false) {
-		var (srcMesh, srcBones) = source;
-
-		var boneIdx   = new int[skel.bones.Length];
-		var bones     = new List<Transform>(srcBones ?? new Transform[0]);
-		var bindposes = new List<Matrix4x4>(srcMesh?.bindposes ?? new Matrix4x4[0]);
-		for(int b=0; b<skel.bones.Length; b++) {
-			boneIdx[b] = bones.IndexOf(skel.bones[b]);
-			if(boneIdx[b] < 0 && skel.bones[b]) {
-				boneIdx[b] = bones.Count;
-				bones.Add(skel.bones[b]);
-				bindposes.Add(Matrix4x4.identity);
-			}
-		}
-		var vertices = new List<Vector3>();
-		var normals  = new List<Vector3>();
-		var tangents = new List<Vector4>();
-		var uvs      = new List<Vector2>();
-		var boneWeights = new List<BoneWeight>();
-		srcMesh?.GetVertices(vertices);
-		srcMesh?.GetNormals (normals);
-		srcMesh?.GetTangents(tangents);
-		srcMesh?.GetUVs     (0, uvs);
-		srcMesh?.GetBoneWeights(boneWeights);
-
-		var baseVertex = vertices.Count;
-		{ // background bone
-			vertices.AddRange(Enumerable.Repeat(Vector3.zero, 2)); 
-			normals .AddRange(Enumerable.Repeat(Vector3.zero, 2));
-			tangents.AddRange(Enumerable.Repeat(Vector4.zero, 2));
-			uvs     .AddRange(Enumerable.Repeat(new Vector2(-1, 0), 2));
-			boneWeights.AddRange(Enumerable.Repeat(new BoneWeight(), 2));
-		}
-		for(int b=0; b<skel.bones.Length; b++) if(skel.bones[b] && !skel.dummy[b]) {
-			var p = skel.parents[b];
-			while(p >= 0 && skel.dummy[p])
-				p = skel.parents[p];
-
-			var mat1 = (Matrix4x4.Scale((skel.root.worldToLocalMatrix
-				* skel.bones[b].localToWorldMatrix).lossyScale/skel.humanScale) * bindposes[boneIdx[b]]).inverse
-				* Matrix4x4.Rotate(skel.axes[b].postQ);
-
-			var mat0 = p < 0 ? mat1 : (Matrix4x4.Scale((skel.root.worldToLocalMatrix
-				* skel.bones[p].localToWorldMatrix).lossyScale/skel.humanScale) * bindposes[boneIdx[p]]).inverse
-				* Matrix4x4.Rotate(Quaternion.Inverse(skel.bones[p].rotation) * skel.bones[b].parent.rotation
-									* skel.axes[b].preQ);
-
-			foreach(var (axis, slot) in layout.bones[b].Select((x,y) => (y,x))) if(slot >= 0) {
-				vertices.Add(mat0.GetColumn(3));
-				normals. Add(mat0.GetColumn(1));
-				tangents.Add(mat0.GetColumn(2));
-				uvs     .Add(new Vector2(slot, 0));
-				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[p < 0 ? b : p], weight0=1});
-
-				vertices.Add(mat1.GetColumn(3));
-				normals. Add(mat1.GetColumn(1));
-				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(axis, axis < 3 ? skel.axes[b].sign[axis] : 0));
-				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[b], weight0=1});
-			}
-		}
-		var slotToVert = new Dictionary<int, int>();
-		{
-			var mat1 = (Matrix4x4.Scale((skel.root.worldToLocalMatrix
-				* skel.bones[0].localToWorldMatrix).lossyScale) * bindposes[boneIdx[0]]).inverse
-				* Matrix4x4.Rotate(skel.axes[0].postQ);
-
-			// scale the matrix as small as possible, so it's invisible in outline view
-			const float eps = 2e-5f; // NOTE: unity seems to discard blendshape with |delta| < 1e-5 !
-			var scale = eps / Mathf.Max(mat1.GetColumn(0).magnitude, mat1.GetColumn(1).magnitude, mat1.GetColumn(2).magnitude);
-			mat1 *= Matrix4x4.Scale(scale * Vector3.one);
-
-			foreach(var slot in layout.blends.Where(x => x >= 0).SelectMany(x => new[]{x, x+1})) {
-				slotToVert[slot] = vertices.Count + 1;
-
-				vertices.Add(mat1.GetColumn(3));
-				normals. Add(mat1.GetColumn(1));
-				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(slot, 0));
-				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[0], weight0=1});
-
-				vertices.Add(mat1.GetColumn(3));
-				normals. Add(mat1.GetColumn(1));
-				tangents.Add(mat1.GetColumn(2));
-				uvs     .Add(new Vector2(7/*axis*/, 1/*sign*/));
-				boneWeights.Add(new BoneWeight{boneIndex0=boneIdx[0], weight0=1});
-			}
-		}
-		
-		// experimental: make dynamic bounds encapsulate view position
-		var viewpos = skel.root.Find("viewpos");
-		if(viewpos) {
-			var i = (int)HumanBodyBones.Neck;
-			for(int j=0; j<2; j++) {
-				vertices[baseVertex+j] = bindposes[boneIdx[i]].inverse.MultiplyPoint3x4(
-								skel.bones[i].InverseTransformPoint(viewpos.TransformPoint(j * Vector3.forward)));
-				boneWeights[baseVertex+j] = new BoneWeight{boneIndex0=boneIdx[i], weight0=1};
-			}
-		}
-
-		mesh.Clear();
-		mesh.SetVertices(vertices);
-		mesh.SetNormals (normals );
-		mesh.SetTangents(tangents);
-		mesh.SetUVs     (0, uvs);
-		mesh.boneWeights = boneWeights.ToArray();
-		mesh.bindposes   = bindposes.ToArray();
-
-		mesh.indexFormat  = srcMesh?.indexFormat ?? UnityEngine.Rendering.IndexFormat.UInt16;
-		mesh.subMeshCount = (srcMesh?.subMeshCount ?? 0) + 1;
-		for(int i=0; i<mesh.subMeshCount-1; i++)
-			mesh.SetIndices(srcMesh.GetIndices(i, false), srcMesh.GetTopology(i),
-				i, false, (int)srcMesh.GetBaseVertex(i));
-		if(lineMesh)
-			mesh.SetIndices(Enumerable.Range(0, vertices.Count-baseVertex).ToArray(),
-				MeshTopology.Lines, mesh.subMeshCount-1, false, baseVertex);
-		else
-			mesh.SetIndices(Enumerable.Range(0, (vertices.Count-baseVertex)/2*3).Select(i => i/3*2+i%3%2).ToArray(),
-				MeshTopology.Triangles, mesh.subMeshCount-1, false, baseVertex);
-
-		// bounds encapsulates mesh and bones and it's symmetric along Y-axis
-		var bounds = new Bounds();
-		foreach(var bone in skel.bones) if(bone)
-			bounds.Encapsulate(skel.root.InverseTransformPoint(bone.position));
-		if(srcMesh)
-			for(int i=0;i<2;i++)
-			for(int j=0;j<2;j++)
-			for(int k=0;k<2;k++)
-				bounds.Encapsulate(skel.root.InverseTransformPoint(srcBones[0].TransformPoint(
-					srcMesh.bindposes[0].MultiplyPoint3x4(srcMesh.bounds.min
-						+ Vector3.Scale(srcMesh.bounds.size, new Vector3(i,j,k))))));
-		mesh.bounds = new Bounds(bounds.center, Vector3.Max(bounds.size, new Vector3(bounds.size.z,0,bounds.size.x)));
-
-		// blendshapes comes from mesh and layout
-		const float PositionScale = 2;
-		var srcDV = new Vector3[srcMesh?.vertexCount??0];
-		var dstDV = new Vector3[vertices.Count];
-		var shapeNames = Enumerable.Range(0, srcMesh?.blendShapeCount??0).Select(i => srcMesh.GetBlendShapeName(i))
-							.Concat(morph.controls.Keys).Distinct();
-		foreach(var name in shapeNames) {
-			System.Array.Clear(dstDV, 0, dstDV.Length);
-			var shapes = new Dictionary<string, float>();
-			if(morph.controls.ContainsKey(name)) {
-				var (b, coord) = morph.controls[name];
-				var slot = layout.blends[b];
-				var blend = morph.blends[b];
-				for(int axis=0; axis<2; axis++)
-					dstDV[slotToVert[slot+axis]] += normals[slotToVert[slot+axis]]*(coord[axis]*PositionScale);
-				if(blend != null) // use blended shapes
-					blend.Sample(coord, shapes);
-			} else // otherwise use existing shapes
-				shapes[name] = 1f; 
-
-			if(srcMesh)
-				Morph.GetBlendShapeVertices(srcMesh, shapes, dstDV, srcDV);
-			mesh.AddBlendShapeFrame(name, 100, dstDV, null, null);
-		}
-		return bones.ToArray();
-	}
-	public static SkinnedMeshRenderer CreateRecorder(string name, Transform parent, Animator animator, SkinnedMeshRenderer smr, string path, bool lineMesh=false) {
-		var recorder = (parent ? parent.Find(name) : GameObject.Find("/"+name)?.transform)
-							?.GetComponent<SkinnedMeshRenderer>();
+	public static SkinnedMeshRenderer CreateRecorderSkinned(GameObject go, string path, Animator animator, SkinnedMeshRenderer smr=null, bool line=false) {
+		var recorder = go.GetComponent<SkinnedMeshRenderer>();
 		if(!recorder) {
 			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
 
-			var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+			var mat = Resources.Load<Material>("MeshRecorder");
+			var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(Path.ChangeExtension(path, "mesh"));
 			if(!mesh) {
 				mesh = new Mesh();
-				AssetDatabase.CreateAsset(mesh, path);
+				AssetDatabase.CreateAsset(mesh, Path.ChangeExtension(path, "mesh"));
 			}
 
-			var go = smr ? Object.Instantiate(smr.gameObject) : new GameObject("", typeof(SkinnedMeshRenderer));
-			go.name = name;
-			go.SetActive(true);
-			go.transform.SetParent(parent, false);
-			go.transform.localPosition = Vector3.zero;
-			go.transform.localRotation = Quaternion.identity;
-
-			recorder = go.GetComponent<SkinnedMeshRenderer>();
+			recorder = go.AddComponent<SkinnedMeshRenderer>();
 			recorder.rootBone = recorder.transform;
 			recorder.sharedMesh = mesh;
-			recorder.sharedMaterials = new Material[]{Resources.Load<Material>("MeshRecorder")};
+			recorder.sharedMaterial = Resources.Load<Material>("MeshRecorder");
 		}
 		{
 			var mesh = recorder.sharedMesh;
@@ -197,42 +33,118 @@ public class MeshRecorder {
 			var skel = new Skeleton(animator);
 			var morph = new Morph(animator);
 			var layout = new MotionLayout(skel, morph);
-			var bones = CreateRecorderMesh(mesh, skel, morph, layout, (smr?.sharedMesh, smr?.bones), lineMesh:lineMesh);
+			var gen = new MeshRecorderGen{skel=skel, morph=morph, layout=layout};
+			var bones = gen.CreateMeshSkinned(mesh, smr?.sharedMesh, smr?.bones, line:line);
 
 			recorder.bones = bones;
 			recorder.sharedMaterials = (smr?.sharedMaterials ?? new Material[0]).Append(
 				recorder.sharedMaterials.LastOrDefault()).ToArray();
 			recorder.localBounds = recorder.sharedMesh.bounds;
-			recorder.transform.localScale = Vector3.one;
-			EditorUtility.SetDirty(recorder);
-			AssetDatabase.SaveAssets();
 		}
+		EditorUtility.SetDirty(recorder);
+		AssetDatabase.SaveAssets();
 		return recorder;
 	}
-	public static string CreateRecorderPath(Animator animator) {
-		var name = animator.avatar.name;
+	public static MeshRenderer CreateRecorderInstanced(GameObject go, string path, Animator animator) {
+		var recorder = go.GetComponent<MeshRenderer>();
+		if(!recorder) {
+			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
+
+			var mat = AssetDatabase.LoadAssetAtPath<Material>(Path.ChangeExtension(path, "mat"));
+			if(!mat) {
+				mat = Object.Instantiate(Resources.Load<Material>("MeshRecorderInst"));
+				AssetDatabase.CreateAsset(mat, Path.ChangeExtension(path, "mat"));
+			}
+			var mesh = Resources.Load<Mesh>("MeshRecorderInst");
+			if(!mesh) {
+				mesh = new Mesh();
+				mesh.name = "quad";
+				MeshRecorderGen.CreateMeshInstanced(mesh);
+				AssetDatabase.AddObjectToAsset(mesh, Resources.Load<Material>("MeshRecorderInst"));
+			}
+
+			recorder = go.AddComponent<MeshRenderer>();
+			recorder.sharedMaterial = mat;
+			recorder.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+			// sorting order
+			recorder.sortingOrder = -1;
+			if(!animator.GetComponent<SortingGroup>())
+				animator.gameObject.AddComponent<SortingGroup>();
+			Debug.Assert(recorder.transform.IsChildOf(animator.transform), "recorder should be child of animator");
+		}
+		{
+			var mat = recorder.sharedMaterial;
+			var mesh = recorder.GetComponent<MeshFilter>().sharedMesh;
+			var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(Path.ChangeExtension(path, "asset"));
+			if(!tex) {
+				tex = new Texture2D(1,1);
+				AssetDatabase.CreateAsset(tex, Path.ChangeExtension(path, "asset"));
+			}
+			mat.mainTexture = tex;
+
+			var skel = new Skeleton(animator);
+			var morph = new Morph(animator);
+			var layout = new MotionLayout(skel, morph);
+			var gen = new MeshRecorderGen{skel=skel, morph=morph, layout=layout};
+			gen.CreateTexture(tex);
+			
+			for(int b=0; b<skel.bones.Length; b++) {
+				var bone = skel.bones[b] && !skel.dummy[b] ? skel.bones[b] : recorder.transform;
+				var renderer = (bone.Find($"${b}") ?? new GameObject($"${b}",
+					typeof(MeshFilter), typeof(MeshRenderer)).transform).GetComponent<MeshRenderer>();
+				renderer.transform.SetParent(bone, false);
+				renderer.transform.gameObject.layer = recorder.gameObject.layer; // copy layer
+				renderer.sharedMaterial = mat;
+				renderer.GetComponent<MeshFilter>().sharedMesh = mesh;
+				renderer.sortingOrder = recorder.sortingOrder + b+1;
+			}
+		}
+		EditorUtility.SetDirty(recorder);
+		AssetDatabase.SaveAssets();
+		return recorder;
+	}
+
+	public static GameObject CreateChild(Component parent, string name, Transform transform=null) {
+		var go = parent ? parent.transform.Find(name)?.gameObject : GameObject.Find("/"+name);
+		if(!go) {
+			go = new GameObject(name);
+			go.transform.SetParent(transform ?? parent.transform, false);
+			go.transform.SetParent(parent?.transform, true);
+		}
+		return go;
+	}
+	public static string CreatePath(Animator animator, string name) {
 		var path = Path.Combine(Path.GetDirectoryName(AssetDatabase.GetAssetPath(animator.avatar)), "auto",
-			(name.EndsWith("Avatar") ? name.Substring(0, name.Length-6) : name) + "Recorder.mesh");
+			$"{Regex.Replace(animator.avatar.name, @"Avatar$", "", RegexOptions.None)}{name}.asset");
 		return path.StartsWith("Assets") ? path : Path.Combine("Assets", path);
 	}
-}
-class MeshRecorderEditor {
-	static void CreateRecorder(Animator animator, SkinnedMeshRenderer smr, bool lineMesh) {
-		EditorGUIUtility.PingObject(MeshRecorder.CreateRecorder("Recorder", animator.transform,
-			animator, smr, MeshRecorder.CreateRecorderPath(animator), lineMesh:lineMesh));
+
+	public static SkinnedMeshRenderer CreateRecorderSkinned(Animator animator, SkinnedMeshRenderer smr=null, bool line=false) {
+		return CreateRecorderSkinned(CreateChild(animator, "Recorder"), CreatePath(animator, "Recorder"),
+			animator, smr, line:line);
+	}
+	public static MeshRenderer CreateRecorderInstanced(Animator animator) {
+		return CreateRecorderInstanced(CreateChild(animator, "Recorder"), CreatePath(animator, "Recorder"),
+			animator);
+	}
+
+	[MenuItem("CONTEXT/SkinnedMeshRenderer/CreateMeshRecorder")]
+	static void CreateRecorderSkinned_FromSkinnedMeshRenderer(MenuCommand command) {
+		var smr = (SkinnedMeshRenderer)command.context;
+		var animator = smr.gameObject.GetComponentInParent<Animator>();
+		EditorGUIUtility.PingObject(CreateRecorderSkinned(animator, smr:smr));
 	}
 	[MenuItem("CONTEXT/Animator/CreateMeshRecorder")]
-	static void CreateRecorderFromAnimator(MenuCommand command) {
-		CreateRecorder((Animator)command.context, null, false);
+	static void CreateRecorderSkinned_FromAnimator(MenuCommand command) {
+		EditorGUIUtility.PingObject(CreateRecorderSkinned((Animator)command.context));
 	}
-	[MenuItem("CONTEXT/Animator/CreateMeshRecorder(Outline)")]
-	static void CreateRecorderFromAnimatorWithLine(MenuCommand command) {
-		CreateRecorder((Animator)command.context, null, true);
+	[MenuItem("CONTEXT/Animator/CreateMeshRecorder (Outline)")]
+	static void CreateRecorderSkinned_FromAnimatorWithLine(MenuCommand command) {
+		EditorGUIUtility.PingObject(CreateRecorderSkinned((Animator)command.context, line:true));
 	}
-	[MenuItem("CONTEXT/SkinnedMeshRenderer/CreateMeshRecorder")]
-	static void CreateRecorderFromSkinnedMeshRenderer(MenuCommand command) {
-		var smr = (SkinnedMeshRenderer)command.context;
-		CreateRecorder(smr.gameObject.GetComponentInParent<Animator>(), smr, false);
+	[MenuItem("CONTEXT/Animator/CreateMeshRecorder (Instanced)")]
+	static void CreateRecorderInstanced_FromAnimator(MenuCommand command) {
+		EditorGUIUtility.PingObject(CreateRecorderInstanced((Animator)command.context));
 	}
 }
 }

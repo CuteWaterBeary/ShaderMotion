@@ -13,18 +13,12 @@ SubShader {
 CGPROGRAM
 #pragma target 4.0
 #pragma vertex vert
-#pragma fragment frag
+#pragma fragment fragTile
 #pragma geometry geom
 #pragma shader_feature _REQUIRE_UV2 // used for grabpass output
 
 #include <UnityCG.cginc>
-#include "Rotation.hlsl"
-#include "Codec.hlsl"
-#include "VideoLayout.hlsl"
-
-float _AutoHide;
-float _Layer;
-static const float _PositionScale = 2;
+#include "MeshRecorder.hlsl"
 
 struct VertInput {
 	float3 vertex  : POSITION;
@@ -39,106 +33,41 @@ struct GeomInput {
 	float4 tangent : TEXCOORD2;
 	float2 uv      : TEXCOORD3;
 	UNITY_VERTEX_INPUT_INSTANCE_ID
-	float3 GetPosition() {
-		return vertex;
-	}
-	float3x3 GetRotationScale() {
-		float3x3 m;
-		m.c0 = cross(normalize(normal), tangent.xyz);
-		m.c1 = normal;
-		m.c2 = tangent.xyz;
-		return m;
-	}
 };
-struct FragInput {
-	nointerpolation ColorTile color : COLOR;
-	float2 uv : TEXCOORD0;
-	float4 pos : SV_Position;
-	UNITY_VERTEX_OUTPUT_STEREO
-};
+float4x4 getMatrix(GeomInput i) {
+	float4x4 m;
+	m.c0 = cross(normalize(i.normal), i.tangent.xyz);
+	m.c1 = i.normal;
+	m.c2 = i.tangent.xyz;
+	m.c3 = i.vertex;
+	m._41_42_43_44 = float4(0,0,0,1);
+	return m;
+}
 void vert(VertInput i, out GeomInput o) {
 	o = i;
 }
 [maxvertexcount(4)]
-void geom(line GeomInput i[2], inout TriangleStream<FragInput> stream) {
+void geom(line GeomInput i[2], inout TriangleStream<FragInputTile> stream) {
+	FragInputTile o;
 	UNITY_SETUP_INSTANCE_ID(i[0]);
-
-	#if !defined(_REQUIRE_UV2)
-		#if defined(USING_STEREO_MATRICES)
-			return; // hide in VR
-		#endif
-		if(_AutoHide && _ProjectionParams.z != 0)
-			return; // require farClip == 0 when autohide is on 
-		if(determinant((float3x3)UNITY_MATRIX_V) > 0)
-			return; // hide in mirror
-	#endif
-
-	bool  background = i[0].uv.x < 0;
-	uint  slot = i[0].uv.x;
-	uint  axis = i[1].uv.x;
-	float sign = i[1].uv.y;
-
-	float3x3 mat1 = i[1].GetRotationScale();
-	float3 pos  = i[1].GetPosition();
-	float3 matY = mat1.c1;
-	float3 matZ = mat1.c2;
-	if(sign != 0) { // relative to mat0
-		float3x3 mat0 = i[0].GetRotationScale();
-		pos  -= i[0].GetPosition();
-		pos  = mul(transpose(mat0), pos)  / dot(mat0.c1, mat0.c1);
-		matY = mul(transpose(mat0), matY) / dot(mat0.c1, mat0.c1);
-		matZ = mul(transpose(mat0), matZ) / dot(mat0.c1, mat0.c1);
-	}
-	float scale = length(matY);
-	matY = normalize(matY);
-	matZ = normalize(matZ);
-
-	float data;
-	if(axis < 3) {
-		float3x3 rot;
-		rot.c1 = matY;
-		rot.c2 = matZ;
-		rot.c0 = cross(rot.c1, rot.c2);
-		data = swingTwistAngles(rot)[axis] / UNITY_PI / sign;
-	} else {
-		matY *= min(1, scale);
-		matZ *= min(1, rcp(scale));
-		pos /= _PositionScale;
-		data = axis < 9 ? pos[axis-(axis < 6 ? 3 : 6)] : axis < 12 ? matY[axis-9] : matZ[axis-12];
-	}
-
-	uint layer = _Layer;
-	float4 rect = GetTileRect(slot);
-	if(background) { 
-		rect = layerRect;
-		data = 0;
-	}
-	rect.xz += layer/2 * layerRect.z;
-	if(layer & 1)
-		rect.xz = 1-rect.xz;
-
-	FragInput o;
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-	EncodeVideoSnorm(o.color, data, axis >= 3 && axis < 6);
 
-	float2 screenSize = _ScreenParams.xy/2;
-	rect = round(rect * screenSize.xyxy) / screenSize.xyxy;
-	rect = rect*2-1;
-	#if !defined(_REQUIRE_UV2)
-		rect.yw *= _ProjectionParams.x;
-	#elif UNITY_UV_STARTS_AT_TOP
-		rect.yw *= -1;
-	#endif
+	VertInputTile I;
+	I.slot = i[0].uv.x;
+	I.axis = i[1].uv.x;
+	I.sign = i[1].uv.y;
+	I.mat0 = getMatrix(i[0]);
+	I.mat1 = getMatrix(i[1]);
+	if(I.sign == 0)
+		I.mat0 = float4x4(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1);
 
+	o.uv = 0;
+	float4 rect = EncodeTransform(I, o);
 	float4 uv = float4(0,0,1,1);
-	o.pos.zw = float2(UNITY_NEAR_CLIP_VALUE, 1);
 	o.uv = uv.xy, o.pos.xy = rect.xy, stream.Append(o);
 	o.uv = uv.xw, o.pos.xy = rect.xw, stream.Append(o);
 	o.uv = uv.zy, o.pos.xy = rect.zy, stream.Append(o);
 	o.uv = uv.zw, o.pos.xy = rect.zw, stream.Append(o);
-}
-float4 frag(FragInput i) : SV_Target {
-	return RenderTile(i.color, i.uv);
 }
 ENDCG
 	}
