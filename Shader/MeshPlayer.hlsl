@@ -43,8 +43,9 @@ void TransformRoot(float4 data, inout float3x3 mat) {
 
 	float3 pos = motion[1] * _PositionScale;
 	float3x3 rot;
-	float err = orthogonalize(motion[2], motion[3], rot.c1, rot.c2);
-	if(err + pow(max(length(rot.c1), length(rot.c2)) - 1, 2) > _RotationTolerance * _RotationTolerance)
+	float orthoErrSq = orthogonalize(motion[2], motion[3], rot.c1, rot.c2);
+	float scaleErrSq = pow(sqrt(max(dot(rot.c1,rot.c1), dot(rot.c2,rot.c2)))-1, 2);
+	if(orthoErrSq + scaleErrSq > _RotationTolerance * _RotationTolerance)
 		mat.c0 = sqrt(-unity_ObjectToWorld._44); //NaN
 
 	rot.c1 *= rsqrt(dot(rot.c2,rot.c2));
@@ -66,9 +67,10 @@ float2 GetBlendCoord(float4 data) {
 
 Texture2D_float _Bone;
 Texture2D_float _Shape;
-void SkinVertex(inout VertInputSkin i, uint layer) {
+void MorphAndSkinVertex(inout VertInputSkin i, uint layer) {
 	_MotionDec_ST = float4(1, 1, layer/2 * layerRect.z, 0);
 	if(layer & 1)
 		_MotionDec_ST.xz = float2(0, 1) - _MotionDec_ST.xz;
-	SkinVertex(i, _Bone, _Shape);
+	MorphVertex(i, _Shape);
+	SkinVertex(i, _Bone);
 }

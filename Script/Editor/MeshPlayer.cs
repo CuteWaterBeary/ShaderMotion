@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
 public class MeshPlayer {
-	public static MeshRenderer CreatePlayer(GameObject go, string path, Animator animator, SkinnedMeshRenderer[] smrs) {
+	public static MeshRenderer CreatePlayer(GameObject go, string path, Animator animator, Renderer[] renderers) {
 		var player = go.GetComponent<MeshRenderer>();
 		if(!player) {
 			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -19,8 +19,8 @@ public class MeshPlayer {
 				AssetDatabase.CreateAsset(mesh, Path.ChangeExtension(path, "mesh"));
 			}
 			var mats = new List<Material>();
-			foreach(var smr in smrs)
-			foreach(var srcMat in smr.sharedMaterials) {
+			foreach(var renderer in renderers)
+			foreach(var srcMat in renderer.sharedMaterials) {
 				var matPath = Path.ChangeExtension(path, mats.Count == 0 ? "mat" : $"{mats.Count}.mat");
 				var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
 				if(!mat) {
@@ -32,18 +32,14 @@ public class MeshPlayer {
 				if(srcMat.HasProperty("_Color"))
 					mat.color = srcMat.color;
 				mats.Add(mat);
+				if(!(renderer is SkinnedMeshRenderer || renderer is MeshRenderer))
+					break; // only one material since it's treated as a quad
 			}
 
 			player = go.AddComponent<MeshRenderer>();
-			player.sharedMaterials = mats.ToArray();
 			player.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
-			// copy renderer settings
-			player.lightProbeUsage				= smrs[0].lightProbeUsage;
-			player.reflectionProbeUsage			= smrs[0].reflectionProbeUsage;
-			player.shadowCastingMode			= smrs[0].shadowCastingMode;
-			player.receiveShadows 				= smrs[0].receiveShadows;
-			player.motionVectorGenerationMode	= smrs[0].motionVectorGenerationMode;
-			player.allowOcclusionWhenDynamic	= smrs[0].allowOcclusionWhenDynamic;
+			player.sharedMaterials = mats.ToArray();
+			CopySettings(renderers[0], player);
 		}
 		{
 			var mesh = player.GetComponent<MeshFilter>().sharedMesh;
@@ -69,8 +65,17 @@ public class MeshPlayer {
 			var morph = new Morph(animator);
 			var layout = new MotionLayout(skel, morph);
 			var gen = new MeshPlayerGen{skel=skel, morph=morph, layout=layout};
-			gen.CreatePlayer(mesh, texs["Bone"], texs["Shape"],
-				smrs.Select(smr => (smr.sharedMesh, smr.bones)).ToArray());
+			var sources = new (Mesh, Transform[])[renderers.Length];
+			for(int i=0; i<renderers.Length; i++)
+				switch(renderers[i]) {
+				case SkinnedMeshRenderer smr:
+					sources[i] = (smr.sharedMesh, smr.bones); break;
+				case MeshRenderer mr:
+					sources[i] = (mr.GetComponent<MeshFilter>().sharedMesh, new[]{mr.transform}); break;
+				default: // treated as a quad
+					sources[i] = (Resources.GetBuiltinResource<Mesh>("Quad.fbx"), new[]{renderers[i].transform}); break;
+				}
+			gen.CreatePlayer(mesh, texs["Bone"], texs["Shape"], sources);
 
 			// make bounds rotational invariant and extend by motion radius
 			const float motionRadius = 4;
@@ -83,12 +88,20 @@ public class MeshPlayer {
 		AssetDatabase.SaveAssets();
 		return player;
 	}
+	static void CopySettings(Renderer src, Renderer dst) {
+		dst.lightProbeUsage				= src.lightProbeUsage;
+		dst.reflectionProbeUsage		= src.reflectionProbeUsage;
+		dst.shadowCastingMode			= src.shadowCastingMode;
+		dst.receiveShadows 				= src.receiveShadows;
+		dst.motionVectorGenerationMode	= src.motionVectorGenerationMode;
+		dst.allowOcclusionWhenDynamic	= src.allowOcclusionWhenDynamic;
+	}
 
-	public static MeshRenderer CreatePlayer(Animator animator, SkinnedMeshRenderer[] smrs=null) {
+	public static MeshRenderer CreatePlayer(Animator animator, Renderer[] renderers=null) {
 		return CreatePlayer(
 			MeshRecorder.CreateChild(animator.transform.parent, $"{animator.name}.Player", animator.transform),
 			MeshRecorder.CreatePath(animator, "Player"),
-			animator, smrs ?? animator.gameObject.GetComponentsInChildren<SkinnedMeshRenderer>()
+			animator, renderers ?? animator.gameObject.GetComponentsInChildren<Renderer>()
 				.Where(smr => !smr.name.StartsWith("Recorder")).ToArray());
 	}
 
@@ -96,7 +109,7 @@ public class MeshPlayer {
 	static void CreatePlayer_FromSkinnedMeshRenderer(MenuCommand command) {
 		var smr = (SkinnedMeshRenderer)command.context;
 		var animator = smr.gameObject.GetComponentInParent<Animator>();
-		// combine all SMRs in the same avatar
+		// combine all selected SMRs in the same avatar
 		var smrs = Selection.gameObjects.Select(x => x.GetComponent<SkinnedMeshRenderer>())
 					.Where(x => (bool)x && x.gameObject.GetComponentInParent<Animator>() == animator).ToArray();
 		if(smrs.Length > 0 && smrs[0] == smr) // avoid multiple execution on multi-select

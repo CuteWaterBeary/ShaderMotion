@@ -48,7 +48,7 @@ struct FragInput {
 void vert(VertInputSkin i, out FragInput o) {
 	UNITY_SETUP_INSTANCE_ID(i);
 	UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-	SkinVertex(i, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer));
+	MorphAndSkinVertex(i, UNITY_ACCESS_INSTANCED_PROP(Props, _Layer));
 	
 	o.vertex = mul(unity_ObjectToWorld, float4(i.vertex, 1));
 	o.normal = mul(unity_ObjectToWorld, float4(i.normal, 0));

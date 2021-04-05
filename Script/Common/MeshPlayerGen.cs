@@ -106,10 +106,15 @@ public class MeshPlayerGen {
 		var bindposes = new Matrix4x4[skel.bones.Length];
 		var colors = new List<Color>();
 		foreach(var (srcMesh, srcBones) in sources) {
-			var objectToRoot = skel.root.worldToLocalMatrix * srcBones[0].localToWorldMatrix * srcMesh.bindposes[0];
+			var srcBindposes = srcMesh.bindposes;
 			var boneWeights  = srcMesh.boneWeights;
+			if(srcBindposes.Length != srcBones.Length && srcBones.Length == 1) { // non-skinned mesh renderer
+				srcBindposes = new[]{Matrix4x4.identity};
+				boneWeights = Enumerable.Repeat(new BoneWeight{weight0=1}, srcMesh.vertexCount).ToArray();
+			}
+			var objectToRoot = skel.root.worldToLocalMatrix * srcBones[0].localToWorldMatrix * srcBindposes[0];
 			var vertMatrices = System.Array.ConvertAll(MeshUtil.RetargetBindWeights(
-				srcBones, skel.bones, srcMesh.bindposes.Select(x => x * objectToRoot.inverse).ToArray(), bindposes,
+				srcBones, skel.bones, srcBindposes.Select(x => x * objectToRoot.inverse).ToArray(), bindposes,
 				boneWeights), m => m * objectToRoot); // bake objectToRoot into vertex position
 			var shapeUV = CreateShapeTex(colors, srcMesh, vertMatrices);
 			var vectorScale = 1f;

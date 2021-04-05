@@ -1,4 +1,4 @@
-static const uint maxMorphInfluence = 16;
+static const uint maxShapeInfluence = 16;
 static const uint maxBoneInfluence = 4;
 static const uint maxBoneDepth = 16; // standard humanoid only needs 11
 void TransformBone(float4 data, inout float3x3 mat);
@@ -14,19 +14,19 @@ struct VertInputSkin {
 	float4 boneWeights : TEXCOORD1;
 	UNITY_VERTEX_INPUT_INSTANCE_ID
 };
-void SkinVertex(inout VertInputSkin i, Texture2D boneTex, Texture2D shapeTex) {
-	// morph target animation
+void MorphVertex(inout VertInputSkin i, Texture2D shapeTex) {
 	uint2 size; shapeTex.GetDimensions(size.x, size.y);
-	uint2 range = round(i.texcoord.zw); // length goes first so its default is 0
+	uint2 range = round(i.texcoord.zw); // z=length, w=start so that the default (0,0,0,1) has length 0
 	uint2 loc0  = uint2(range.y%size.x, range.y/size.x);
-	for(uint K=0; K<maxMorphInfluence; K++) {
+	for(uint K=0; K<maxShapeInfluence; K++) {
 		if(K >= range.x)
 			break;
 		uint2 loc = uint2(loc0.x+K*3, loc0.y);
 		float2 coord = GetBlendCoord(shapeTex.Load(uint3(loc.xy, 0)));
 		i.vertex += shapeTex.SampleLevel(LinearClampSampler, (loc + 0.5 + coord.xy) / size.xy, 0).xyz;
 	}
-	// skeletal animation
+}
+void SkinVertex(inout VertInputSkin i, Texture2D boneTex) {
 	float3 vertex = 0, normal = 0, tangent = 0;
 	for(uint J=0; J<maxBoneInfluence; J++) {
 		// bone + weight/2 == i.boneWeights[J]
