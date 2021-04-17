@@ -1,11 +1,11 @@
 Shader "Motion/VideoDecoder" {
 Properties {
-	_MainTex ("MainTex (encoded motion texture)", 2D) = "black" {} // [MainTexture] isn't working well so we have to rename
+	_MainTex ("MainTex (motion video texture)", 2D) = "black" {}
+	_FrameRate ("FrameRate (interpolation fps)", Float) = 0 // 0=disable
 }
 SubShader {
 	Pass {
-		Lighting Off
-CGPROGRAM
+CGINCLUDE
 #pragma target 3.5
 #pragma vertex vert
 #pragma fragment frag
@@ -15,6 +15,14 @@ CGPROGRAM
 #include "Rotation.hlsl"
 #include "Codec.hlsl"
 #include "VideoLayout.hlsl"
+
+void vert(appdata_customrendertexture i, out float2 texcoord : TEXCOORD0, out float4 vertex : SV_Position) {
+	texcoord = CustomRenderTextureVertexShader(i).localTexcoord.xy; // lite version
+	vertex = float4(texcoord*2-1, UNITY_NEAR_CLIP_VALUE, 1);
+#if UNITY_UV_STARTS_AT_TOP
+	vertex.y *= -1;
+#endif
+}
 
 Texture2D _MainTex;
 float4 _MainTex_ST;
@@ -26,21 +34,28 @@ float sampleSnorm(float2 uv) {
 	SampleTile(c, _MainTex, rect * _MainTex_ST.xyxy + _MainTex_ST.zwzw);
 	return DecodeVideoSnorm(c);
 }
-struct FragInput {
-	float2 uv : TEXCOORD0;
-	float4 pos : SV_Position;
-};
-void vert(appdata_customrendertexture i, out FragInput o) {
-	// only use uv lookup table to keep it simple
-	o.uv = CustomRenderTextureVertexShader(i).localTexcoord.xy;
-	o.pos = float4(o.uv*2-1, UNITY_NEAR_CLIP_VALUE, 1);
-#if UNITY_UV_STARTS_AT_TOP
-	o.pos.y *= -1;
+
+float _FrameRate;
+float4 frag(float2 texcoord : TEXCOORD0) : SV_Target {
+	float v = sampleSnorm(texcoord);
+#if defined(SHADER_API_WEBGL)
+	return EncodeBufferSnorm(v);
+#else
+	float3 buf = tex2Dlod(_SelfTexture2D, float4(texcoord, 0, 0)).yzw;
+	if(buf.y != v)
+		buf = float3(buf.y, v, _Time.y);
+	if(_FrameRate)
+		v = lerp(buf.x, buf.y, saturate((_Time.y-buf.z + unity_DeltaTime.z)*_FrameRate));
+	return float4(v, buf);
 #endif
 }
-float4 frag(FragInput i) : SV_Target {
-	return EncodeBufferSnorm(sampleSnorm(i.uv));
-}
+ENDCG
+CGPROGRAM
+ENDCG
+	}
+	Pass { // no-op pass, used to populate double buffered CRT
+		ColorMask 0
+CGPROGRAM
 ENDCG
 	}
 }
