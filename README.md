@@ -1,28 +1,23 @@
-# ShaderMotion ([click here for WebGL2 demo](https://lox9973.com/ShaderMotion/))
+# ShaderMotion
 
-## A shader-based humanoid motion codec and avatar animator 
+## A shader-based motion-to-video codec for humanoid avatar
 
-ShaderMotion is a humanoid motion codec and avatar animator for Unity 2018, whose core system is completely written in shader language HLSL. It is designed for streaming 3d motion across VR platforms using popular live streaming platforms. The sender takes a humanoid avatar model and encodes its bone rotations as color pixels in video stream. The receiver reads color pixels from video and applies the decoded animation to an avatar. It's able to handle animation retargeting, loosely based on [Unity Mecanim](https://blogs.unity3d.com/2014/05/26/mecanim-humanoids/).
+ShaderMotion is a motion-to-video codec for Unity humanoid avatar, whose core system is completely written in shader language HLSL. It is designed for streaming fullbody motion across VR platforms using popular live streaming platforms. The sender converts bone rotations of a humanoid avatar into video color blocks for transmission. The receiver converts color blocks back to bone rotations for motion playback, and allows the motion to be retargeted to a different avatar.
 
-This project starts as an attempt to stream 3d motion across VRChat instances, inspired by [memex's "Omnipresence Live"](http://meme-x.jp/2020/05/omnipresencelive/). The streamer wearing a special avatar broadcasts their screen with encoded motion to a live streaming platform like Twitch. The audience can watch the stream in another VRChat world with a video player, and view a 3d avatar following the streamer's motion in the 2d video.
+This project started as an attempt to stream VR user motion across VRChat instances, inspired by [memex's performance "Omnipresence Live"](http://meme-x.jp/2020/05/omnipresencelive/). A performer using a special avatar streams their screen with color blocks to a live streaming platform like Twitch. The audience plays the video stream in a different VRChat world, and watches a 3D avatar puppet following the encoded motion.
 
-This project is partially ported to WebGL2 (link above). Audience can watch in desktop browser, and even export streamer's move as Unity animation file now!
+## [>> Click here for the web demo <<](https://lox9973.com/ShaderMotion/)
 
-Please read [Wiki](../../wikis/home) for technical details.
-
-## Requirements
-
-- Unity 2018+ (tested on Unity 2018.4.20f1)
-
-It doesn't depend on VRCSDK.
+This project has been partially ported to WebGL2. Audience can watch in desktop browser, and even export streamer's motion into Unity animation file.
 
 ## Installation
 
+- Unity 2018+ is required (tested on Unity 2018.4.20f1).
 - Download the latest [release](../releases) zip file.
-- Extract zip file into `Assets/ShaderMotion` in your Unity project. If you are upgrading from a previous version, please remove the folder before extraction.
+- Extract the zip file into `Assets/ShaderMotion` in your Unity project. If you are upgrading from a previous version, please remove the folder before extraction.
 
 ## Getting started
 
-Check out the example scene under `Example` folder for instruction.
+This project contains a working example scene `Example/Example.unity` which gives an overview of the whole system. If you are interested in technical details, please read the [wiki](../../wikis/home).
 
 ![Overview](../../wikis/uploads/f6c3a9855edf0b8ee69a37bdfe3aff07/GameView.png)
