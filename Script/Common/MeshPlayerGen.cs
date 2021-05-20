@@ -58,7 +58,7 @@ public class MeshPlayerGen {
 		colors.AddRange(Enumerable.Repeat(default(Color), (width - colors.Count%width)%width));
 		return ranges;
 	}
-	void CreateBoneTex(List<Color> colors, Matrix4x4[] bindposes) {
+	void CreateBoneTex(Texture2D boneTex, Matrix4x4[] bindposes) {
 		var axesData = new Vector4[skel.bones.Length];
 		var restPose = new Matrix4x4[skel.bones.Length];
 		for(int b=0; b<skel.bones.Length; b++) if(skel.bones[b]) {
@@ -73,7 +73,7 @@ public class MeshPlayerGen {
 			else
 				axesData[b] = (Vector4)sign + new Vector4(0,0,0, slot0);
 			if(p < 0)
-				restPose[b] = Matrix4x4.identity;
+				restPose[b] = default; // unused value
 			else if(skel.bones[p] == skel.bones[b])
 				restPose[b] = Matrix4x4.Rotate(Quaternion.Inverse(skel.axes[p].preQ) * skel.axes[b].preQ);
 			else
@@ -93,10 +93,11 @@ public class MeshPlayerGen {
 				mat = restPose[p];
 			}
 		}
-		var width = mats.Max(l=>l.Count);
-		colors.Clear();
-		colors.AddRange(mats.SelectMany(l=>l.Concat(Enumerable.Repeat(new Matrix4x4(), width-l.Count)))
-					.SelectMany(m=>new Color[]{m.GetColumn(0), m.GetColumn(1), m.GetColumn(2), m.GetColumn(3)}));
+		var maxCount = mats.Max(l => l.Count);
+		boneTex.Resize(maxCount*4, skel.bones.Length, TextureFormat.RGBAFloat, false);
+		boneTex.SetPixels(mats.SelectMany(l=>l.Concat(Enumerable.Repeat(new Matrix4x4(), maxCount-l.Count)))
+			.SelectMany(m=>new Color[]{m.GetColumn(0), m.GetColumn(1), m.GetColumn(2), m.GetColumn(3)}).ToArray());
+		boneTex.Apply(false);
 	}
 	public void CreatePlayer(Mesh mesh, Texture2D boneTex, Texture2D shapeTex, (Mesh,Transform[])[] sources) {
 		var vertices = new List<Vector3>();
@@ -113,7 +114,7 @@ public class MeshPlayerGen {
 				boneWeights = Enumerable.Repeat(new BoneWeight{weight0=1}, srcMesh.vertexCount).ToArray();
 			}
 			var objectToRoot = skel.root.worldToLocalMatrix * srcBones[0].localToWorldMatrix * srcBindposes[0];
-			var vertMatrices = System.Array.ConvertAll(MeshUtil.RetargetBindWeights(
+			var vertMatrices = System.Array.ConvertAll(MeshUtil.RetargetBindposesBoneWeights(
 				srcBones, skel.bones, srcBindposes.Select(x => x * objectToRoot.inverse).ToArray(), bindposes,
 				boneWeights), m => m * objectToRoot); // bake objectToRoot into vertex position
 			var shapeUV = CreateShapeTex(colors, srcMesh, vertMatrices);
@@ -136,10 +137,7 @@ public class MeshPlayerGen {
 		shapeTex.Resize(256, colors.Count/256, TextureFormat.RGBAFloat, false);
 		shapeTex.SetPixels(colors.ToArray());
 		shapeTex.Apply(false, false);
-		CreateBoneTex(colors, bindposes);
-		boneTex.Resize(colors.Count/skel.bones.Length, skel.bones.Length, TextureFormat.RGBAFloat, false);
-		boneTex.SetPixels(colors.ToArray());
-		boneTex.Apply(false, false);
+		CreateBoneTex(boneTex, bindposes);
 
 		mesh.Clear();
 		mesh.SetVertices(vertices);

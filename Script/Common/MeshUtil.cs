@@ -80,7 +80,7 @@ public class MeshUtil {
 		}
 		return vertMatrices;
 	}
-	public static Matrix4x4[] RetargetBindWeights(Transform[] srcBones, Transform[] dstBones,
+	public static Matrix4x4[] RetargetBindposesBoneWeights(Transform[] srcBones, Transform[] dstBones,
 													Matrix4x4[] srcBindposes, Matrix4x4[] dstBindposes,
 													BoneWeight[] boneWeights) {
 		var boneMap = RetargetBones(srcBones, dstBones);
@@ -93,8 +93,9 @@ public class MeshUtil {
 		for(int i=0; i<srcBones.Length; i++)
 			if(!used[i])
 				boneMap[i] = -1;
+		// retarget bindposes for mapped srcBones
 		RetargetBindposes(srcBones, dstBones, srcBindposes, dstBindposes, boneMap);
-		// map unmapped srcBones
+		// map unmapped srcBones to first mapped bone
 		var defaultBoneIndex = boneMap.Where(x => x >= 0).FirstOrDefault();
 		for(int i=0; i<boneMap.Length; i++)
 			if(boneMap[i] < 0 && used[i]) {
