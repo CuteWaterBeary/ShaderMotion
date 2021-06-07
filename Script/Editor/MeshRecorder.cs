@@ -75,10 +75,10 @@ public class MeshRecorder {
 		{
 			var mat = recorder.sharedMaterial;
 			var mesh = recorder.GetComponent<MeshFilter>().sharedMesh;
-			var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(Path.ChangeExtension(path, "asset"));
+			var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(Path.ChangeExtension(path, "texture2D"));
 			if(!tex) {
 				tex = new Texture2D(1,1);
-				AssetDatabase.CreateAsset(tex, Path.ChangeExtension(path, "asset"));
+				AssetDatabase.CreateAsset(tex, Path.ChangeExtension(path, "texture2D"));
 			}
 			mat.mainTexture = tex;
 

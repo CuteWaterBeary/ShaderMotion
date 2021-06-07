@@ -37,9 +37,7 @@ void TransformRoot(float4 data, inout float3x3 mat) {
 	UNITY_LOOP
 	for(uint I=0; I<4; I++)
 		motion[I] = sampleSnorm3(idx+3*I);
-	#if !defined(SHADER_API_WEBGL)
-		motion[1] = mergeSnorm3(motion[0],motion[1]);
-	#endif
+	motion[1] = mergeSnorm3(motion[0],motion[1]);
 
 	float3 pos = motion[1] * _PositionScale;
 	float3x3 rot;
