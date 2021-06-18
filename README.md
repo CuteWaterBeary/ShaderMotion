@@ -13,7 +13,7 @@ This project has been partially ported to WebGL2. Audience can watch in desktop 
 ## Installation
 
 - Unity 2018+ is required (tested on Unity 2018.4.20f1).
-- Download the latest [release](../releases) zip file.
+- Download the latest [release](../../releases) zip file.
 - Extract the zip file into `Assets/ShaderMotion` in your Unity project. If you are upgrading from a previous version, please remove the folder before extraction.
 
 ## Getting started
