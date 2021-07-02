@@ -10,55 +10,45 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -340790334, guid: 67cc4cb7839cd3741b63733d5adf0442, type: 3}
-  m_Name: VRCARecorderMenu3
+  m_Name: SMVRCAMenu2
   m_EditorClassIdentifier: 
   controls:
-  - name: RecordOther
-    icon: {fileID: 2800000, guid: 9a20b3a6641e1af4e95e058f361790cb, type: 3}
+  - name: Record
+    icon: {fileID: 2800000, guid: 44b822c693fbd174d8f994ee312dd8e4, type: 3}
     type: 102
     parameter:
-      name: VRCARecorder_Other
+      name: SMVRCA_Recorder
     value: 1
     style: 0
     subMenu: {fileID: 0}
     subParameters: []
     labels: []
-  - name: P1
-    icon: {fileID: 0}
-    type: 102
+  - name: Calibrate
+    icon: {fileID: 2800000, guid: 30891e000b76dfc4db977fc2238911a0, type: 3}
+    type: 101
     parameter:
-      name: VRCARecorder_Layer
-    value: 0
-    style: 0
-    subMenu: {fileID: 0}
-    subParameters: []
-    labels: []
-  - name: P2
-    icon: {fileID: 0}
-    type: 102
-    parameter:
-      name: VRCARecorder_Layer
+      name: SMVRCA_Calibrate
     value: 1
     style: 0
     subMenu: {fileID: 0}
     subParameters: []
     labels: []
-  - name: P3
-    icon: {fileID: 0}
-    type: 102
+  - name: Multiplayer
+    icon: {fileID: 2800000, guid: 5acca5d9b1a37724880f1a1dc1bc54d3, type: 3}
+    type: 103
     parameter:
-      name: VRCARecorder_Layer
-    value: 2
+      name: 
+    value: 1
     style: 0
-    subMenu: {fileID: 0}
+    subMenu: {fileID: 11400000, guid: f90f7dca61428ee4cb47e7ea787eebb0, type: 2}
     subParameters: []
     labels: []
-  - name: P4
-    icon: {fileID: 0}
+  - name: MotionLink
+    icon: {fileID: 2800000, guid: 29b4286f41c93f84f9ffc6ca7551f2d3, type: 3}
     type: 102
     parameter:
-      name: VRCARecorder_Layer
-    value: 3
+      name: SMVRCA_Player
+    value: 1
     style: 0
     subMenu: {fileID: 0}
     subParameters: []

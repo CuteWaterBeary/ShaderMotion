@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -340790334, guid: 67cc4cb7839cd3741b63733d5adf0442, type: 3}
-  m_Name: VRCARecorderMenu
+  m_Name: SMVRCAMenu
   m_EditorClassIdentifier: 
   controls:
   - name: ShaderMotion
@@ -20,6 +20,6 @@ MonoBehaviour:
       name: 
     value: 1
     style: 0
-    subMenu: {fileID: 11400000, guid: 6a7b7449f9f7d3646ace979dada8391e, type: 2}
+    subMenu: {fileID: 11400000, guid: 22882eca3e7f94843b520f28ac9aa7be, type: 2}
     subParameters: []
     labels: []

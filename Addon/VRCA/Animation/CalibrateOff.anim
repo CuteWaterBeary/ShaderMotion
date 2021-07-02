@@ -6,7 +6,7 @@ AnimationClip:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: OtherOff
+  m_Name: CalibrateOff
   serializedVersion: 6
   m_Legacy: 0
   m_Compressed: 0
@@ -41,9 +41,9 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    attribute: m_IsActive
-    path: SMVRCA/CameraOther
-    classID: 1
+    attribute: m_Active
+    path: SMVRCA/R/P/Anchor
+    classID: 1773428102
     script: {fileID: 0}
   m_PPtrCurves: []
   m_SampleRate: 1
@@ -54,11 +54,11 @@ AnimationClip:
   m_ClipBindingConstant:
     genericBindings:
     - serializedVersion: 2
-      path: 4273404503
-      attribute: 2086281974
+      path: 2129704020
+      attribute: 4294967287
       script: {fileID: 0}
-      typeID: 1
-      customType: 0
+      typeID: 1773428102
+      customType: 35
       isPPtrCurve: 0
     pptrCurveMapping: []
   m_AnimationClipSettings:
@@ -106,9 +106,9 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    attribute: m_IsActive
-    path: SMVRCA/CameraOther
-    classID: 1
+    attribute: m_Active
+    path: SMVRCA/R/P/Anchor
+    classID: 1773428102
     script: {fileID: 0}
   m_EulerEditorCurves: []
   m_HasGenericRootTransform: 0
