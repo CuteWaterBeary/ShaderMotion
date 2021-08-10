@@ -94,11 +94,9 @@ class VRCASetup : EditorWindow {
 	public static void SetupDescriptor(Animator animator) {
 		var desc3 = VRCA3Descriptor.FromGameObject(animator.gameObject);
 		if(desc3 != null) {
-			if(!desc3.AddAnimationLayer(VRCA3Descriptor.FX, Resources.Load<AnimatorController>("SMVRCAFX")))
-				Debug.LogError("VRCA3 Playable layers are missing. Please click 'Customize' button");
-			if(!desc3.AddExpressions(Resources.Load<ScriptableObject>("SMVRCAMenu"),
-					Resources.Load<ScriptableObject>("SMVRCAParams")))
-				Debug.LogError("VRCA3 Expressions are missing. Please click 'Customize' button");
+			desc3.MergeAnimationLayer(VRCA3Descriptor.FX, Resources.Load<AnimatorController>("SMVRCAFX"));
+			desc3.MergeExpressions(Resources.Load<ScriptableObject>("SMVRCAMenu"),
+					Resources.Load<ScriptableObject>("SMVRCAParams"));
 			return;
 		}
 		var desc2 = VRCA2Descriptor.FromGameObject(animator.gameObject);

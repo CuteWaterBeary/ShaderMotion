@@ -18,32 +18,29 @@ class VRCA3Descriptor {
 	}
 
 	public const int FX = 5;
-	public bool AddAnimationLayer(int type, AnimatorController source) {
-		if(!serializedObject.FindProperty("customizeAnimationLayers").boolValue)
-			return false;
-		var animLayers = serializedObject.FindProperty("baseAnimationLayers");
-		for(int i=0; i<(animLayers?.arraySize??0); i++) {
-			var animLayer = animLayers.GetArrayElementAtIndex(i);
-			if(animLayer.FindPropertyRelative("type")?.intValue == (int?)type) {
-				var isDefault = animLayer.FindPropertyRelative("isDefault");
-				var animatorController = animLayer.FindPropertyRelative("animatorController");
-				var target = (AnimatorController)animatorController.objectReferenceValue;
-				if(!isDefault.boolValue && target && target != source) {
-					AnimatorControllerUtil.AddParameterByVal(target, source.parameters);
-					AnimatorControllerUtil.AddLayerByVal(target, source.layers);
-					Debug.Log($"{target} is updated");
-				} else {
-					isDefault.boolValue = false;
-					animatorController.objectReferenceValue = source;
-				}
+	public void MergeAnimationLayer(int type, AnimatorController source) {
+		serializedObject.FindProperty("customizeAnimationLayers").boolValue = true;
+		var baseAnimationLayers = serializedObject.FindProperty("baseAnimationLayers");
+		var animationLayer = Enumerable.Range(0, baseAnimationLayers?.arraySize??0)
+			.Select(i => baseAnimationLayers.GetArrayElementAtIndex(i))
+			.FirstOrDefault(x => x.FindPropertyRelative("type")?.intValue == (int?)type);
+		if(animationLayer != null) {
+			var isDefault = animationLayer.FindPropertyRelative("isDefault");
+			var animatorController = animationLayer.FindPropertyRelative("animatorController");
+			var target = (AnimatorController)animatorController.objectReferenceValue;
+			if(!isDefault.boolValue && target && target != source) {
+				AnimatorControllerUtil.CopyParameters(source, target);
+				AnimatorControllerUtil.CopyLayers(source, target);
+				Debug.Log($"{target} is updated");
+			} else {
+				isDefault.boolValue = false;
+				animatorController.objectReferenceValue = source;
 			}
 		}
 		serializedObject.ApplyModifiedProperties();
-		return true;
 	}
-	public bool AddExpressions(ScriptableObject sourceMenu, ScriptableObject sourceParams) {
-		if(!serializedObject.FindProperty("customExpressions").boolValue)
-			return false;
+	public void MergeExpressions(ScriptableObject sourceMenu, ScriptableObject sourceParams) {
+		serializedObject.FindProperty("customExpressions").boolValue = true;
 		var expressionsMenu = serializedObject.FindProperty("expressionsMenu");
 		var expressionParameters = serializedObject.FindProperty("expressionParameters");
 		var targetMenu = (ScriptableObject)expressionsMenu.objectReferenceValue;
@@ -65,7 +62,6 @@ class VRCA3Descriptor {
 		} else
 			expressionParameters.objectReferenceValue = sourceParams;
 		serializedObject.ApplyModifiedProperties();
-		return true;
 	}
 
 	static void CopyRecursive(SerializedProperty source, SerializedProperty target) {
