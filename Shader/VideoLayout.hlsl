@@ -25,10 +25,11 @@ half4 RenderTile(ColorTile c, float2 uv) {
 	#endif
 	return half4(color, 1);
 }
-void SampleTile(out ColorTile c, Texture2D_half tex, float4 rect) {
+void SampleTile(out ColorTile c, Texture2D_half tex, float4 rect, bool sampleGamma=false) {
 	UNITY_UNROLL for(int i=0; i<int(ColorTileLen); i++) {
 		c[i] = tex.SampleLevel(LinearClamp, lerp(rect.xy, rect.zw, float2((i+0.5)/ColorTileLen, 0.5)), 0);
 		#if !defined(SHADER_API_WEBGL)
+		if(!sampleGamma)
 			c[i] = LinearToGamma(c[i]);
 		#endif
 	}

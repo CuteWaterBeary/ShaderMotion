@@ -2,6 +2,7 @@ Shader "Motion/VideoDecoder" {
 Properties {
 	_MainTex ("MainTex (motion video texture)", 2D) = "black" {}
 	_FrameRate ("FrameRate (interpolation fps)", Float) = 0 // 0=disable
+	[ToggleUI] _ApplyGamma("ApplyGamma", Float) = 0
 }
 SubShader {
 	Pass {
@@ -26,12 +27,13 @@ void vert(appdata_customrendertexture i, out float2 texcoord : TEXCOORD0, out fl
 
 Texture2D _MainTex;
 float4 _MainTex_ST;
+float _ApplyGamma;
 float sampleSnorm(float2 uv) {
 	float4 rect = GetTileRect(uv);
 	if(uv.x > 0.5)
 		rect.xz = rect.zx;
 	ColorTile c;
-	SampleTile(c, _MainTex, rect * _MainTex_ST.xyxy + _MainTex_ST.zwzw);
+	SampleTile(c, _MainTex, rect * _MainTex_ST.xyxy + _MainTex_ST.zwzw, _ApplyGamma);
 	return DecodeVideoSnorm(c);
 }
 
