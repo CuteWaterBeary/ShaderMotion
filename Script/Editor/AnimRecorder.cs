@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEditor;
-using GameObjectRecorder = UnityEditor.Animations.GameObjectRecorder;
+using UnityEditor.Animations;
 using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
@@ -105,15 +105,23 @@ public class AnimRecorder {
 		}
 		recorder.TakeSnapshot(deltaTime);
 	}
-	public void SaveToClip(AnimationClip clip, float fps=60) {
+#if UNITY_2019_4_OR_NEWER
+	public void SaveToClip(AnimationClip clip, float fps, CurveFilterOptions filterOptions)
+#else
+	public void SaveToClip(AnimationClip clip, float fps)
+#endif
+	{
 		if(!recorder.isRecording) {
 			clip.ClearCurves();
 			clip.frameRate = fps;
 			return;
 		}
 
-		// todo: use CurveFilterOptions in 2019
+#if UNITY_2019_4_OR_NEWER
+		recorder.SaveToClip(clip, fps, filterOptions);
+#else
 		recorder.SaveToClip(clip, fps);
+#endif
 
 		var rootCurves = new AnimationCurve[7];
 		var muscleCurves = new AnimationCurve[HumanTrait.MuscleCount];
@@ -178,10 +186,16 @@ class AnimRecorderWindow : EditorWindow {
 	Animator animator;
 	AnimationClip clip;
 	int frameRate = 30;
+#if UNITY_2019_4_OR_NEWER
+	float keyframeReduction = 0.5f;
+#endif
 	void OnGUI() {
 		animator = (Animator)EditorGUILayout.ObjectField("Animator", animator, typeof(Animator), true);
 		clip = (AnimationClip)EditorGUILayout.ObjectField("Output clip", clip, typeof(AnimationClip), false);
 		frameRate = EditorGUILayout.IntSlider("Frame rate", frameRate, 1, 120);
+#if UNITY_2019_4_OR_NEWER
+		keyframeReduction = EditorGUILayout.Slider("Keyframe reduction %", keyframeReduction, 0, 100);
+#endif
 
 		if(!recorder) {
 			using(new EditorGUI.DisabledScope(!animator || !clip || !EditorApplication.isPlaying))
@@ -195,7 +209,18 @@ class AnimRecorderWindow : EditorWindow {
 			recorder = null;
 		} else {
 			if(GUILayout.Button("Stop")) {
+#if UNITY_2019_4_OR_NEWER
+				var filterOptions = new CurveFilterOptions() {
+					keyframeReduction = true,
+					positionError = keyframeReduction,
+					rotationError = keyframeReduction,
+					scaleError = keyframeReduction,
+					floatError = keyframeReduction
+				};
+				recorder.SaveToClip(clip, frameRate, filterOptions);
+#else
 				recorder.SaveToClip(clip, frameRate);
+#endif
 				recorder.Dispose();
 				recorder = null;
 				AssetDatabase.SaveAssets();
