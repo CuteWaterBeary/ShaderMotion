@@ -8,7 +8,7 @@ public class MotionLayout {
 	public readonly int[][] bones;
 	public readonly int[] blends;
 	public MotionLayout(Skeleton skeleton, Morph morph, (int,int,int)[] boneLayout=null, (int,int,int)[] blendLayout=null) {
-		bones = new int[skeleton.bones.Length][];
+		bones = Enumerable.Repeat(new int[0], skeleton.bones.Length).ToArray();
 		int index = -1;
 		foreach(var (start, length, bone) in boneLayout??defaultHumanLayout) {
 			index = start >= 0 ? start : index;
@@ -35,6 +35,7 @@ public class MotionLayout {
 
 	public static (int, int, int)[] defaultBlendLayout = new []{
 		( 80, 2, (int)BlendSpacePreset.LipSync),
+		( 82, 2, (int)BlendSpacePreset.Blink),
 		( 88, 2, (int)BlendSpacePreset.Emotion),
 	};
 	public static (int, int, int)[] defaultHumanLayout = new []{
@@ -64,7 +65,7 @@ public class MotionLayout {
 		( -1, 1, (int)HumanBodyBones.RightToes),
 		( -1, 2, (int)HumanBodyBones.LeftEye), // TODO: merge with lookat
 		( -1, 2, (int)HumanBodyBones.RightEye),
-		( -1, 2, (int)HumanBodyBones.Jaw), // TODO: merge with lipsync
+		// ( -1, 2, (int)HumanBodyBones.Jaw), // TODO: deprecated. merge with lipsync
 		// 77~89: reserved (morph)
 
 		( 90, 2, (int)HumanBodyBones.LeftThumbProximal),

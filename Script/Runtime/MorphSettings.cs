@@ -38,7 +38,7 @@ public class MorphSettings : MonoBehaviour  {
 		System.Array.Resize(ref exprs, exprPresets.Length);
 		for(int i=0; i<exprPresets.Length; i++)
 			if(string.IsNullOrEmpty(exprs[i].name) && exprPresets[i].shapes != null)
-				exprs[i].name = exprPresets[i].shapes[0].Key.Split('#')
+				exprs[i].name = exprPresets[i].shapes[0].Key.Split('\0')
 					.SelectMany(p => shapeNames.Where((System.Func<string, bool>)
 						new Regex(p, RegexOptions.Compiled|RegexOptions.IgnoreCase).IsMatch)).FirstOrDefault();
 	}
@@ -70,15 +70,17 @@ public class MorphSettings : MonoBehaviour  {
 			morph.blends[(int)b] = blend;
 		}
 	}
-	public static string[] GetShapesInChildren(GameObject root) {
+	public static string[] GetShapesInChildren(GameObject root, System.Func<SkinnedMeshRenderer,bool> predicate=null) {
 		return root.GetComponentsInChildren<SkinnedMeshRenderer>()
+			.Where(predicate ?? (x => true))
 			.Select(smr => smr.sharedMesh)
 			.SelectMany(mesh => Enumerable.Range(0, mesh?mesh.blendShapeCount:0)
 				.Select(i => mesh.GetBlendShapeName(i))).Distinct().ToArray();
 	}
 
-	static readonly string visemePattern = @"[.]v_({0})$#v_({0})$#^({0})$#[^0-9a-z]({0})$";
-	static readonly string emotionPattern = @"^({0})$";
+	static readonly string visemePattern  = string.Join("\0", new[]{@"[.]v_({0})$", @"v_({0})$", @"^({0})$", @"[^0-9a-z]({0})$"});
+	static readonly string blinkPattern   = string.Join("\0", new[]{@"[.]({0})$", @"^({0})$"});
+	static readonly string emotionPattern = string.Join("\0", new[]{@"^({0})$"});
 	static readonly Expression[] exprPresets = Enumerable.Range(0, 1+System.Enum.GetValues(typeof(ExpressionPreset)).Cast<int>().Last())
 		.ToDictionary(i => (ExpressionPreset)i, i => default(Expression))
 		.Concat(new Dictionary<ExpressionPreset,Expression>
@@ -98,6 +100,10 @@ public class MorphSettings : MonoBehaviour  {
 		{VisemeI,  new Expression("v_ih", string.Format(visemePattern, "i|ih"))}, // EN: [ɪ], JP: [i]
 		{VisemeO,  new Expression("v_oh", string.Format(visemePattern, "o|oh"))}, // EN: [o], JP: [o̞]
 		{VisemeU,  new Expression("v_ou", string.Format(visemePattern, "u|ou"))}, // EN: [ʊ], JP: [ɯ]
+		// https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm-1.0-beta/expressions.md
+		{BlinkBoth,  new Expression("blink",       string.Format(blinkPattern, "blink|eyes_closed"))},
+		{BlinkLeft,  new Expression("blink_left",  string.Format(blinkPattern, "(blink|wink)_l(eft)?"))},
+		{BlinkRight, new Expression("blink_right", string.Format(blinkPattern, "(blink|wink)_r(ight)?"))},
 		// https://github.com/vrm-c/vrm-specification/pull/175
 		// https://en.wikipedia.org/wiki/Emotion_classification#Circumplex_model
 		{Emotion0, new Expression("emotion_0", string.Format(emotionPattern, "(mood_)?happy|joy"))}, // VRC,VRM
@@ -116,19 +122,26 @@ public class MorphSettings : MonoBehaviour  {
 			(VisemeA,  new Vector2( 1f,  0f)), // open vowel
 			(VisemeI,  new Vector2( 0f, +1f)), // close unrounded vowel
 			(VisemeU,  new Vector2( 0f, -1f)), // close rounded vowel
-			(VisemeE,  new Vector2(.5f, +1f)), // mid unrounded vowel
-			(VisemeO,  new Vector2(.5f, -1f)), // mid rounded vowel
+			(VisemeE,  new Vector2( 1f, +1f)), // mid unrounded vowel
+			(VisemeO,  new Vector2( 1f, -1f)), // mid rounded vowel
 		}, new[]{
 			// based on https://developer.oculus.com/documentation/unity/audio-ovrlipsync-viseme-reference/#reference-images
-			(VisemePP, new Vector2( 0f,  0f)),
-			(VisemeFF, new Vector2( 0f, -1f)), // U
-			(VisemeTH, new Vector2(.5f, +1f)), // E
-			(VisemeDD, new Vector2( 0f, +1f)), // I
-			(VisemeKK, new Vector2( 0f, +1f)), // I
+			// https://github.com/GiveMeAllYourCats/cats-blender-plugin/blob/2e171a3ae4c6e995e5c08afc131e2fb725bc86e8/tools/viseme.py#L101
+			// https://github.com/emilianavt/OpenSeeFace/blob/be86991e7ac2855bf0f42f5816af6eb9a12706fb/Examples/OpenSeeVRMDriver.cs#L530
 			(VisemeCH, new Vector2( 0f, +1f)), // I
-			(VisemeSS, new Vector2( 0f,+.8f)), // I * 0.8
-			(VisemeNN, new Vector2( 0f, +1f)), // I
-			(VisemeRR, new Vector2( 0f, -1f)), // U
+			(VisemeDD, new Vector2(.3f,+.7f)), // 0.3A + 0.7I
+			(VisemeFF, new Vector2(.2f,+.4f)), // 0.2A + 0.4I
+			(VisemeKK, new Vector2(.7f,+.3f)), // 0.7A + 0.3I
+			(VisemeNN, new Vector2(.2f,+.7f)), // 0.2A + 0.7I
+			(VisemePP, new Vector2( 0f,  0f)),
+			(VisemeRR, new Vector2(.3f,+.2f)), // 0.5I + 0.3O
+			(VisemeSS, new Vector2( 0f,+.8f)), // 0.8I
+			(VisemeTH, new Vector2(.6f,-.2f)), // 0.4A + 0.2O
+		}}),
+		(Blink, "blink", new[]{new[]{
+			(BlinkBoth,  new Vector2( 1f, 1f)),
+			(BlinkLeft,  new Vector2( 1f, 0f)),
+			(BlinkRight, new Vector2( 0f, 1f)),
 		}}),
 		(Emotion, "emotion", new[]{new[]{
 			// counter-clockwise circumplex
@@ -159,7 +172,11 @@ public enum ExpressionPreset {
 	VisemeO,
 	VisemeU,
 
-	Emotion0 = 15,
+	BlinkBoth,
+	BlinkLeft,
+	BlinkRight,
+
+	Emotion0,
 	Emotion1,
 	Emotion2,
 	Emotion3,

@@ -38,7 +38,8 @@ public class MorphSettingsEditor : Editor {
 	public override void OnInspectorGUI() {
 		if(lastTarget != target) {
 			lastTarget = target;
-			shapeNames = MorphSettings.GetShapesInChildren((target as MorphSettings).gameObject);
+			shapeNames = MorphSettings.GetShapesInChildren((target as MorphSettings).gameObject,
+				smr => smr.name != "Recorder");
 		}
 
 		serializedObject.Update();
@@ -171,6 +172,9 @@ public class MorphSettingsEditor : Editor {
 		{(int)VisemeI,  "Viseme I"},
 		{(int)VisemeO,  "Viseme O"},
 		{(int)VisemeU,  "Viseme U"},
+		{(int)BlinkBoth,  "Blink both"},
+		{(int)BlinkLeft,  "Blink left"},
+		{(int)BlinkRight, "Blink right"},
 		{(int)Emotion0, "Emotion 0 (happy)"},
 		{(int)Emotion1, "Emotion 1 (excited)"},
 		{(int)Emotion2, "Emotion 2 (surprised)"},

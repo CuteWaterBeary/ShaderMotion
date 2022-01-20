@@ -55,6 +55,7 @@ public class Morph {
 }
 public enum BlendSpacePreset {
 	LipSync,
+	Blink,
 	Emotion,
 	LastPreset,
 }
