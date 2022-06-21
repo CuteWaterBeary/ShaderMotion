@@ -8,7 +8,7 @@ public class MotionLayout {
 	public readonly int[][] bones;
 	public readonly int[] blends;
 	public MotionLayout(Skeleton skeleton, Morph morph, (int,int,int)[] boneLayout=null, (int,int,int)[] blendLayout=null) {
-		bones = Enumerable.Repeat(new int[0], skeleton.bones.Length).ToArray();
+		bones = new int[skeleton.bones.Length][];
 		int index = -1;
 		foreach(var (start, length, bone) in boneLayout??defaultHumanLayout) {
 			index = start >= 0 ? start : index;

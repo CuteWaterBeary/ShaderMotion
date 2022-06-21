@@ -61,7 +61,7 @@ public class MeshPlayerGen {
 	void CreateBoneTex(Texture2D boneTex, Matrix4x4[] bindposes) {
 		var axesData = new Vector4[skel.bones.Length];
 		var restPose = new Matrix4x4[skel.bones.Length];
-		for(int b=0; b<skel.bones.Length; b++) if(skel.bones[b]) {
+		for(int b=0; b<skel.bones.Length; b++) if(skel.bones[b] && layout.bones[b] != null) {
 			var slot0 = layout.bones[b].Select((slot, axis) => slot<0 ? null : (int?)(slot-axis)).Max()??0;
 			var sign = skel.axes[b].sign;
 			for(int i=0; i<3; i++)

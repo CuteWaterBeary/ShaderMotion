@@ -25,7 +25,7 @@ public class MeshRecorderGen {
 		// background quad
 		mats.Add(new Matrix4x4(Vector4.zero, Vector4.zero, Vector4.zero, new Vector4(-1, 3, 1, 0)).transpose);
 		mats.Add(default(Matrix4x4));
-		for(int b=0; b<skel.bones.Length; b++) if(skel.bones[b] && !skel.dummy[b]) {
+		for(int b=0; b<skel.bones.Length; b++) if(skel.bones[b] && !skel.dummy[b] && layout.bones[b] != null) {
 			Matrix4x4 mat0, mat1;
 			var p = getParentAndMatrixPair(b, out mat0, out mat1);
 			var range = layout.bones[b].Select((slot, axis) => (slot:slot, axis:axis)).Where(x => x.slot >= 0);
@@ -53,7 +53,7 @@ public class MeshRecorderGen {
 			matrices.AddRange(new Matrix4x4[2]);
 			boneWeights.AddRange(new BoneWeight[2]);
 		}
-		for(int b=0; b<skel.bones.Length; b++) if(skel.bones[b] && !skel.dummy[b]) {
+		for(int b=0; b<skel.bones.Length; b++) if(skel.bones[b] && !skel.dummy[b] && layout.bones[b] != null) {
 			Matrix4x4 mat0, mat1;
 			var p = getParentAndMatrixPair(b, out mat0, out mat1);
 			mat1 = bindposes[boneMap[b]].inverse * mat1;

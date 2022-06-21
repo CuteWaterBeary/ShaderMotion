@@ -46,7 +46,7 @@ public class MotionDecoder {
 		this.layer = layer;
 
 		var vec = new Vector3[5];
-		for(int b=0; b<skeleton.bones.Length; b++) {
+		for(int b=0; b<skeleton.bones.Length; b++) if(layout.bones[b] != null) {
 			System.Array.Clear(vec, 0, vec.Length);
 			for(int axis=0; axis<layout.bones[b].Length; axis++)
 				if(layout.bones[b][axis] >= 0)
