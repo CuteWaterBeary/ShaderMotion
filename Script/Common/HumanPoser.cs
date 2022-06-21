@@ -5,24 +5,27 @@ using UnityEngine;
 namespace ShaderMotion {
 public class HumanPoser {
 	public static (Vector3, Quaternion) GetRootMotion(ref HumanPose pose, Animator animator) {
-		// unfortunately we can't simply read bodyPosition & bodyRotation
-		// because Unity ignores localScale for ancestors of hips
-		var root = animator.transform;
+		var anim = animator.transform;
+		// bodyPosition/bodyRotation represents the center of mass relative to animator parent, divided by the human scale
+		// anim.localScale seems ignored
+		var rootQ = Quaternion.Inverse(anim.localRotation) * pose.bodyRotation;
+		var rootT = Quaternion.Inverse(anim.localRotation) * (pose.bodyPosition-anim.localPosition/animator.humanScale);
+		// Unity <=2019 seems to ignore localScale on the open interval (hips, anim) as well
+#if !UNITY_2020_1_OR_NEWER // TODO: tested on 2021 but not 2020
 		var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
-		var rootQ = root.localRotation;
-		var rootT = root.localPosition/animator.humanScale;
-		// undo animator's localTQ
-		var massQ = Quaternion.Inverse(rootQ) * pose.bodyRotation;
-		var massT = Quaternion.Inverse(rootQ) * (pose.bodyPosition - rootT);
- 		// TR(bodyPosition, bodyRotation) == p[0].localTR  * .. * p[n].localTR  * hips.localTR
- 		// TRS(massT, massQ, hipsS)       == p[0].localTRS * .. * p[n].localTRS * hips.localTR
-		var preT = Vector3.zero;
-		for(var x = hips.parent; x != root; x = x.parent)
-			preT = x.localPosition + x.localRotation * preT;
-		massT = root.InverseTransformPoint(hips.parent.TransformPoint(
-			Quaternion.Inverse(hips.parent.rotation) * (root.rotation * (
-				massT * animator.humanScale - preT))));
-		return (massT / animator.humanScale, massQ);
+		rootT = anim.InverseTransformPoint(hips.parent.TransformPoint(
+			InverseTransformPointTQ(rootT*animator.humanScale, hips.parent, anim)))/animator.humanScale;
+#endif
+		return (rootT, rootQ);
+	}
+	static Vector3 InverseTransformPointTQ(Vector3 pos, Transform begin, Transform end) {
+		var chainT = Vector3.zero;
+		var chainQ = Quaternion.identity;
+		for(var x = begin; x != end; x = x.parent) {
+			chainT = x.localRotation * chainT + x.localPosition;
+			chainQ = x.localRotation * chainQ;
+		}
+		return Quaternion.Inverse(chainQ) * (pos - chainT);
 	}
 	public static void SetHipsPositionRotation(ref HumanPose pose, Vector3 hipsT, Quaternion hipsQ, float humanScale) {
 		var spreadQ = Quaternion.identity;
@@ -34,6 +37,7 @@ public class HumanPoser {
 		var t = Quaternion.LookRotation(Vector3.right, Vector3.forward);
 		pose.bodyPosition = hipsT / humanScale;
 		pose.bodyRotation = hipsQ * (t * spreadQ * Quaternion.Inverse(t));
+		// TODO: account for mass center
 	}
 	public static void SetBoneSwingTwists(ref HumanPose pose, Vector3[] swingTwists) {
 		System.Array.Clear(pose.muscles, 0, pose.muscles.Length);

@@ -130,6 +130,9 @@ public class AnimRecorder {
 		SetHumanCurves(clip, rootCurves, muscleCurves);
 		// GameObjectRecorder does AnimationClip.EnsureQuaternionContinuity automatically
 
+		BakeIntoPoseBasedUponOrigin(clip);
+	}
+	static void BakeIntoPoseBasedUponOrigin(AnimationClip clip) {
 		var settings = AnimationUtility.GetAnimationClipSettings(clip);
 		settings.loopBlendOrientation    = true; // Root Transform Rotation: Bake Into Pose
 		settings.keepOriginalOrientation = true; // Root Transform Rotation: Based Upon = Origin
