@@ -18,6 +18,6 @@ This project has been partially ported to WebGL2. Audience can watch in desktop 
 
 ## Getting started
 
-This project contains a working example scene `Example/Example.unity` which gives an overview of the whole system. If you are interested in technical details, please read the [wiki](../../wikis/home).
+This project contains a working example scene `Example/Example.unity` which gives an overview of the whole system. If you are interested in technical details, please read the [wiki](../../wikis/home). If you are setting up a VRChat avatar, please read [VRCA addon](Addon/VRCA) instruction.
 
 ![Overview](../../wikis/uploads/f6c3a9855edf0b8ee69a37bdfe3aff07/GameView.png)
