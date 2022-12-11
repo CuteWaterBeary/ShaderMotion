@@ -169,6 +169,7 @@ public class MeshRecorderGen {
 		}
 		return bones.ToArray();
 	}
+/*
 	public static void CreateMeshInstanced(Mesh mesh) {
 		const int axisCount = 12;
 		var quad = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
@@ -179,5 +180,6 @@ public class MeshRecorderGen {
 		mesh.triangles = Enumerable.Range(0, axisCount).SelectMany(i =>
 			quad.triangles.Select(v => v+i*quad.vertexCount)).ToArray();
 	}
+*/
 }
 }

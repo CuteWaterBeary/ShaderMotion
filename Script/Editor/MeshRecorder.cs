@@ -45,6 +45,7 @@ public class MeshRecorder {
 		AssetDatabase.SaveAssets();
 		return recorder;
 	}
+/*
 	public static MeshRenderer CreateRecorderInstanced(GameObject go, string path, Animator animator) {
 		var recorder = go.GetComponent<MeshRenderer>();
 		if(!recorder) {
@@ -103,7 +104,7 @@ public class MeshRecorder {
 		AssetDatabase.SaveAssets();
 		return recorder;
 	}
-
+*/
 	public static GameObject CreateChild(Component parent, string name, Transform transform=null) {
 		var go = parent ? parent.transform.Find(name)?.gameObject : GameObject.Find("/"+name);
 		if(!go) {
@@ -123,11 +124,12 @@ public class MeshRecorder {
 		return CreateRecorderSkinned(CreateChild(animator, "Recorder"), CreatePath(animator, "Recorder"),
 			animator, smr, line:line);
 	}
+/*
 	public static MeshRenderer CreateRecorderInstanced(Animator animator) {
 		return CreateRecorderInstanced(CreateChild(animator, "Recorder"), CreatePath(animator, "Recorder"),
 			animator);
 	}
-
+*/
 	[MenuItem("CONTEXT/SkinnedMeshRenderer/CreateMeshRecorder")]
 	static void CreateRecorderSkinned_FromSkinnedMeshRenderer(MenuCommand command) {
 		var smr = (SkinnedMeshRenderer)command.context;
@@ -142,10 +144,12 @@ public class MeshRecorder {
 	static void CreateRecorderSkinned_FromAnimatorWithLine(MenuCommand command) {
 		EditorGUIUtility.PingObject(CreateRecorderSkinned((Animator)command.context, line:true));
 	}
+/*
 	[MenuItem("CONTEXT/Animator/CreateMeshRecorder (Instanced)")]
 	static void CreateRecorderInstanced_FromAnimator(MenuCommand command) {
 		EditorGUIUtility.PingObject(CreateRecorderInstanced((Animator)command.context));
 	}
+*/
 }
 }
 #endif
