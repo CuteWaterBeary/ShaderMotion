@@ -8,7 +8,9 @@ using System.Text.RegularExpressions;
 
 namespace ShaderMotion {
 public class MeshPlayer {
-	public static MeshRenderer CreatePlayer(GameObject go, string path, Animator animator, Renderer[] renderers) {
+	public static MeshRenderer CreatePlayer(GameObject go, string path, Animator animator, Renderer[] renderers, Material material=null) {
+		if(!material)
+			material = Resources.Load<Material>("MeshPlayer");
 		var player = go.GetComponent<MeshRenderer>();
 		if(!player) {
 			System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -24,7 +26,7 @@ public class MeshPlayer {
 				var matPath = Path.ChangeExtension(path, mats.Count == 0 ? "mat" : $"{mats.Count}.mat");
 				var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
 				if(!mat) {
-					mat = Object.Instantiate(Resources.Load<Material>("MeshPlayer"));
+					mat = Object.Instantiate(material);
 					AssetDatabase.CreateAsset(mat, matPath);
 				}
 				if(srcMat.HasProperty("_MainTex"))
@@ -54,7 +56,7 @@ public class MeshPlayer {
 					AssetDatabase.AddObjectToAsset(tex, mesh);
 				}
 				foreach(var mat in player.sharedMaterials) {
-					mat.shader = Resources.Load<Material>("MeshPlayer").shader;
+					mat.shader = material.shader;
 					mat.SetTexture($"_{texName}", texs[texName]);
 				}
 			}
@@ -118,6 +120,56 @@ public class MeshPlayer {
 	[MenuItem("CONTEXT/Animator/CreateMeshPlayer")]
 	static void CreatePlayer_FromAnimator(MenuCommand command) {
 		EditorGUIUtility.PingObject(CreatePlayer((Animator)command.context));
+	}
+
+	[MenuItem("CONTEXT/Animator/CreateDataPlayer")]
+	static void CreateDataPlayer_FromAnimator(MenuCommand command) {
+		EditorGUIUtility.PingObject(CreateDataPlayer((Animator)command.context));
+	}
+	public static MeshRenderer CreateDataPlayer(Animator animator) {
+		var skel = new Skeleton(animator);
+		var vertices = new List<Vector3>(skel.bones.Length);
+		var normals  = new List<Vector3>(skel.bones.Length);
+		var tangents = new List<Vector4>(skel.bones.Length);
+		var uv0      = new List<Vector2>(skel.bones.Length);
+		var bindposes = new List<Matrix4x4>(skel.bones.Length);
+		var boneWeights = new List<BoneWeight>(skel.bones.Length);
+		var bones = new List<Transform>(skel.bones.Length);
+		for(int i=0; i<skel.bones.Length; i++)
+			if(skel.bones[i] && !skel.dummy[i]) {
+				vertices.Add(Vector3.zero);
+				normals .Add(new Vector3(0,1,0));
+				tangents.Add(new Vector4(0,0,1,1));
+				uv0     .Add(new Vector2(i,0));
+				boneWeights.Add(new BoneWeight{boneIndex0=bones.Count, weight0=1});
+				bones.Add(skel.bones[i]);
+				bindposes.Add(Matrix4x4.identity);
+			}
+
+		var mesh = new Mesh();
+		mesh.SetVertices(vertices);
+		mesh.SetNormals (normals);
+		mesh.SetTangents(tangents);
+		mesh.SetUVs(0, uv0);
+		mesh.bindposes = bindposes.ToArray();
+		mesh.boneWeights = boneWeights.ToArray();
+		mesh.SetIndices(Enumerable.Range(0, vertices.Count).ToArray(), MeshTopology.Points, 0, false, 0);
+
+		var go = MeshRecorder.CreateChild(animator.transform, "DataPlayer", animator.transform);
+		var renderer = go.AddComponent<SkinnedMeshRenderer>();
+		renderer.rootBone = renderer.transform;
+		renderer.sharedMesh = mesh;
+		renderer.sharedMaterial = Resources.Load<Material>("DataPlayer");
+		renderer.bones = bones.ToArray();
+
+		var player = CreatePlayer(
+			MeshRecorder.CreateChild(animator.transform.parent, $"{animator.name}.DataPlayer", animator.transform),
+			MeshRecorder.CreatePath(animator, "DataPlayer"),
+			animator, new Renderer[]{renderer}, material:renderer.sharedMaterial);
+
+		Object.DestroyImmediate(go);
+		Object.DestroyImmediate(mesh);
+		return player;
 	}
 }
 }
