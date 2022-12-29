@@ -4,7 +4,7 @@ Properties {
 	[NoScaleOffset] _MotionDec ("MotionDec (decoded motion texture)", 2D) = "black" {}
 	[HideInInspector] _Bone ("Bone", 2D) = "black" {}
 	[HideInInspector] _Shape ("Shape", 2D) = "black" {}
-	_HumanScale ("HumanScale (hips height: 0=original, -1=encoded)", Float) = 0
+	_HumanScale ("HumanScale (hips height: 0=original, -1=encoded)", Float) = -1
 	_Layer ("Layer (location of motion stripe)", Float) = 0
 	_RotationTolerance ("RotationTolerance", Range(0, 1)) = 0.1
 	[ToggleUI] _AutoHide ("AutoHide (only visible in camera with farClip=0)", Float) = 1

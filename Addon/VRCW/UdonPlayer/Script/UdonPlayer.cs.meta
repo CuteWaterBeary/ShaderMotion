@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1e86090cf3dcc8b459900fd8f7b7663a
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - motionBuffer: {instanceID: 0}
+  - animator: {instanceID: 0}
+  - outputTex: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
