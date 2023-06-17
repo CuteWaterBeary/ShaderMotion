@@ -4,8 +4,11 @@
 
 This toolset can be used to create 3D Movies and Performances in which the audience can move around the stage/world to experience it from any angle.
 
+https://github.com/CuteWaterBeary/ShaderMotion/assets/103973703/90e64b45-4f1b-4597-beab-e972ed94b8c1
+
 Amother use case is music performances in VRChat that can be viewed in VR without worring about instance limits on worlds because if the encoded motion video can be played in many instances at once allowing thousands of people to experience it at once.
 
+https://github.com/CuteWaterBeary/ShaderMotion/assets/103973703/26626891-3d98-4d20-801d-9f8238321681
 
 ### A shader-based motion-to-video codec for humanoid avatars
 
@@ -14,6 +17,14 @@ ShaderMotion is a motion-to-video codec for Unity humanoid avatar, whose core sy
 It is designed for streaming fullbody motion across VR platforms using popular live streaming platforms.
 
 The **sender converts bone rotations of a humanoid avatar into video color blocks** for transmission. The receiver converts color blocks back to bone rotations for motion playback, **and allows the motion to be retargeted to a different avatar**.
+
+
+
+
+
+
+
+
 
 
 ### [>> Click here for the web demo <<](https://lox9973.com/ShaderMotion/)
